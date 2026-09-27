@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
 
+from offshore_risk.asset import AssetModel
 from offshore_risk.financial.loss_model import COMPONENTS
 from offshore_risk.simulation import SOURCES, ScenarioSpec, SimulationSettings, Simulator, simulate
 from offshore_risk.simulation.derived import derive
-from offshore_risk.asset import AssetModel
 
 N = 20_000
 
@@ -47,12 +47,57 @@ def test_frequency_only_mitigation_never_increases_loss_in_any_year(cfg, base):
 
 
 def test_zero_rates_edge_case(cfg):
-    sc = ScenarioSpec(overrides={p: {"op": "set", "value": 0.0} for p in (
-        "rel_valve_rate", "rel_flange_seal_rate", "rel_corrosion_rate", "ptw_isolation_failure_prob", "overpressure_demand_rate",
-        "comp_weibull_shape", "gen_lambda_per_h", "pipeline_rate_per_km_yr", "spurious_trip_rate", "weather_rate", "collision_rate")})
-    # comp_weibull_shape = 0 would give t^0 = 1 - 1 = 0 failures, i.e. no compressor events
+    zero = {"op": "set", "value": 0.0}
+    rates = (
+        "rel_valve_rate",
+        "rel_flange_seal_rate",
+        "rel_corrosion_rate",
+        "ptw_isolation_failure_prob",
+        "overpressure_demand_rate",
+        "gen_lambda_per_h",
+        "pipeline_rate_per_km_yr",
+        "spurious_trip_rate",
+        "weather_rate",
+        "collision_rate",
+    )
+    sc = ScenarioSpec(overrides={p: zero for p in rates} | {"comp_weibull_scale_years": {"op": "set", "value": 1e12}})
     res = Simulator(cfg, scenario=sc).run(SimulationSettings(n_years=2000, seed=4))
-    assert res.total.sum() == 0.0
+    assert res.total.sum() == pytest.approx(0.0, abs=1e-6)
+
+
+def test_restart_cost_only_for_process_platforms(cfg):
+    """A complex-wide shutdown restarts the four hydrocarbon platforms, not LQ or SWI."""
+    st = SimulationSettings(n_years=200, seed=1)
+    base = Simulator(cfg).run(st)
+    sc = ScenarioSpec(forced_events=[{"type": "weather", "damage": False}])
+    res = Simulator(cfg, scenario=sc).run(st)
+    extra = res.component_frame()["restart"] - base.component_frame()["restart"]
+    assert int(AssetModel.from_config(cfg.asset).process_mask.sum()) == 4
+    assert np.allclose(extra, 4 * cfg.financial["restart_cost_usd"])
+
+
+def test_all_outage_durations_capped(cfg):
+    cap = cfg.aleatory["max_event_downtime_days"]
+    sc = ScenarioSpec(logistics_multiplier=1000.0)
+    res = Simulator(cfg, scenario=sc).run(SimulationSettings(n_years=2000, seed=2, record_events=True))
+    assert res.events["downtime_days"].max() <= cap + 1e-9
+
+
+@pytest.mark.parametrize("bad", [dict(n_years=0), dict(seed=-1), dict(dependence="x"), dict(epistemic="x"), dict(chunk_size=0)])
+def test_settings_validation(bad):
+    with pytest.raises(ValueError):
+        SimulationSettings(**bad)
+
+
+def test_theta_validation(cfg):
+    th = cfg.registry.at_quantile(10)
+    th["rel_valve_rate"] = th["rel_valve_rate"][:5]
+    with pytest.raises(ValueError):
+        Simulator(cfg).run(SimulationSettings(n_years=10), theta=th)
+    th = cfg.registry.at_quantile(10)
+    del th["weather_rate"]
+    with pytest.raises(KeyError):
+        Simulator(cfg).run(SimulationSettings(n_years=10), theta=th)
 
 
 def test_forced_event_adds_exactly_its_loss(cfg, base):
@@ -73,7 +118,9 @@ def test_dependence_models_same_frequencies(cfg):
 
 def test_median_mode_is_deterministic_in_theta(cfg):
     r = simulate(cfg, n_years=1000, seed=1, epistemic="median")
-    assert r.derived_means["pfd_esd"] == pytest.approx(float(derive(cfg.registry.at_quantile(1), AssetModel.from_config(cfg.asset)).pfd_esd[0]))
+    assert r.derived_means["pfd_esd"] == pytest.approx(
+        float(derive(cfg.registry.at_quantile(1), AssetModel.from_config(cfg.asset)).pfd_esd[0])
+    )
 
 
 def test_chunking_does_not_change_sample_size(cfg):

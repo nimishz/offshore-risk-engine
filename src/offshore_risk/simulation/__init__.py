@@ -1,2 +1,3 @@
 """Monte Carlo simulation."""
-from .engine import ScenarioSpec, SimulationResult, SimulationSettings, Simulator, simulate, SOURCES  # noqa: F401
+
+from .engine import SOURCES, ScenarioSpec, SimulationResult, SimulationSettings, Simulator, simulate  # noqa: F401

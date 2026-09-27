@@ -13,6 +13,7 @@ Simplifications (documented in docs/limitations.md): an undetected release is
 treated as unisolated even though flame detection might later trigger ESD;
 fire-protection success does not depend on whether the fire is jet or pool.
 """
+
 from __future__ import annotations
 
 from .tree import EventTree, Split

@@ -176,11 +176,13 @@ the model element that represents it, or explicitly marked as not modelled.
 
 Release frequency on platform $p$ (per year):
 
-$$\lambda_p = k_p\Bigl[\lambda_\text{valve} + \lambda_\text{flange} + \lambda_\text{corr}\,\phi_\text{insp}
+$$\lambda_p = k_p\Bigl[\lambda_\text{valve} + \lambda_\text{flange} + \lambda_\text{corr}
 + n_\text{jobs}\,q_\text{PTW}\,p_\text{rel|PTW} + \lambda_\text{demand}^{op}\,\text{PFD}_\text{PSV}\Bigr]$$
 
 $k_p$ is a relative equipment-count factor. The bracket is an OR gate on rates
 (rare-event sum) containing two AND gates of a rate with a probability.
+Inspection quality enters through $\lambda_\text{corr}$, which the
+inspection-programme control reduces (§5.8).
 
 Compressor failures follow a power-law non-homogeneous Poisson process (minimal
 repair). With Weibull scale $\eta$, shape $\beta$ and age since overhaul $a$, the
@@ -210,14 +212,19 @@ neglecting repair time and diagnostic coverage):
 The fire-protection function is a fault tree (Figure in notebook 02):
 
 ```text
-FP_FAIL = OR( FIREWATER_FAIL, DELUGE_VALVE_FAIL, AND(FIRE_DET_FAIL, MANUAL_FAIL) )
-FIREWATER_FAIL = OR( HEADER_FAIL, AND(ELECTRIC_PUMPS_FAIL, DIESEL_PUMP_FAIL) )
-ELECTRIC_PUMPS_FAIL = AND( PUMP_A_UNAVAILABLE, PUMP_B_UNAVAILABLE )
-PUMP_A_UNAVAILABLE = OR( PUMP_A_FTS, PUMP_A_MAINT, POWER_LOSS, CCF_ELEC_PUMPS )
-PUMP_B_UNAVAILABLE = OR( PUMP_B_FTS, PUMP_B_MAINT, POWER_LOSS, CCF_ELEC_PUMPS )
+FIRE_PROTECTION_FAIL = OR( FIREWATER_FAIL, DELUGE_VALVE_FAIL, AND(FIRE_DETECTION_FAIL, MANUAL_ACTIVATION_FAIL) )
+FIREWATER_FAIL       = OR( HEADER_FAIL, AND(ALL_ELECTRIC_PUMPS_FAIL, DPUMP_1_UNAVAILABLE) )
+ALL_ELECTRIC_PUMPS_FAIL = AND( EPUMP_1_UNAVAILABLE, EPUMP_2_UNAVAILABLE )
+EPUMP_i_UNAVAILABLE  = OR( EPUMP_i_FTS, EPUMP_i_MAINT, EPUMP_i_FTR, POWER_LOSS, CCF_ELEC_PUMPS )
+DPUMP_j_UNAVAILABLE  = OR( DPUMP_j_FTS, DPUMP_j_MAINT, DPUMP_j_FTR [, CCF_DIESEL_PUMPS if ≥ 2 diesel pumps] )
 ```
 
-`POWER_LOSS` and `CCF_ELEC_PUMPS` appear under both pumps. Multiplying gate
+The tree is generated from the configured architecture (any number of
+electric and diesel pumps; flame-detection voting from the asset file), and
+basic events are numbered within each pump group so names are always unique.
+Each pump group has its own β-factor (`fw_elec_ccf_beta`, `fw_diesel_ccf_beta`).
+
+`POWER_LOSS` and `CCF_ELEC_PUMPS` appear under every electric pump. Multiplying gate
 probabilities as if inputs were independent gives roughly $(q + p)^2$ where the
 correct answer is roughly $q^2 + p$. The fault-tree module evaluates exactly by
 **Shannon decomposition** on repeated basic events:
@@ -427,7 +434,7 @@ loss, counts of fires/explosions/evacuations, and the environmental proxy.
 ## 7. Model dependencies
 
 ```text
-distributions ─► config (ParameterRegistry)
+distributions ─► config (ParameterRegistry) ─► config_validation
 reliability ─► fault_tree (basic-event probabilities)
 fault_tree + reliability ─► simulation.derived (PFDs, λ)
 bayesian ─► config (optional posterior overrides for selected parameters)
@@ -445,8 +452,10 @@ No cycles; visualization depends on everything and nothing depends on it.
 
 ## 8. Simulation workflow
 
-1. Load YAML configuration → `ParameterRegistry`; optionally replace selected
-   priors with Bayesian posteriors fitted to the synthetic records.
+1. Load the YAML configuration and validate it (`config_validation.py`: required
+   fields, ranges, cross-references, acyclic dependencies; every problem is
+   reported at once) → `ParameterRegistry`; optionally replace selected priors
+   with Bayesian posteriors fitted to the synthetic records.
 2. Draw uniforms and transform to epistemic parameters θ (one row per year in
    pooled mode; one row per world in nested mode).
 3. Apply mitigation transforms to θ (effectiveness sampled from its own stream).
@@ -462,7 +471,9 @@ No cycles; visualization depends on everything and nothing depends on it.
 10. Compute metrics, appetite status, contributions, and plots.
 
 Years are processed in fixed-size chunks with chunk-specific seeds, so memory
-stays bounded and results are reproducible for a given seed.
+stays bounded and results are reproducible for a given seed and chunk size
+(verified bit-for-bit from a fresh clone and under different Python hash seeds).
+Every outage duration is capped at `max_event_downtime_days`.
 
 ---
 
@@ -480,4 +491,7 @@ stays bounded and results are reproducible for a given seed.
 | Metrics | against hand-computed samples; ES ≥ VaR; allocation sums to total | `tests/test_metrics.py` |
 | Optimisation | budget respected; MILP = brute force on small instances | `tests/test_optimization.py` |
 | Convergence | 10k vs 50k vs 100k years, several seeds; SE and bootstrap CIs | `scripts/run_validation.py` → `docs/validation.md` |
-| Model A vs B | identical marginal means (within MC error); different tails | `scripts/run_validation.py` |
+| Model A vs B | identical event frequencies (within MC error); different tails | `scripts/run_validation.py` |
+| Configuration | every class of malformed input is rejected with a clear message | `tests/test_config_validation.py` |
+| Analysis layers | nested, sensitivity, scenario, mitigation and appetite consistency | `tests/test_analysis_modules.py` |
+| Documentation | README / docs numbers generated from results; qualitative claims re-checked on every render | `scripts/render_docs.py` |

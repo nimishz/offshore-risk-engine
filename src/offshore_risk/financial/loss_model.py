@@ -7,6 +7,7 @@ Environmental: a physical proxy (bbl of liquid released) is always recorded; a
                assumption* (``env_cost_per_bbl_scenario_usd``) and is excluded
                from totals unless the caller opts in.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -38,7 +39,7 @@ class FinancialModel:
     discount_rate: float
 
     @classmethod
-    def from_config(cls, fin: dict) -> "FinancialModel":
+    def from_config(cls, fin: dict) -> FinancialModel:
         return cls(
             logistics_day_rate=float(fin["logistics_day_rate_usd"]),
             restart_cost=float(fin["restart_cost_usd"]),

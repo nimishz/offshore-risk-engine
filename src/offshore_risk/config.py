@@ -1,11 +1,12 @@
 """Configuration loading and the epistemic parameter registry."""
+
 from __future__ import annotations
 
 import copy
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
 
 import numpy as np
 import pandas as pd
@@ -66,14 +67,12 @@ class ParameterRegistry:
     def at_quantile(self, n: int = 1, q: float = 0.5, overrides: Mapping[str, float] | None = None):
         """All parameters at quantile q (default: medians), optionally overriding some quantiles."""
         overrides = overrides or {}
-        return {
-            k: np.full(n, p.dist.quantile(overrides.get(k, q))) for k, p in self.params.items()
-        }
+        return {k: np.full(n, p.dist.quantile(overrides.get(k, q))) for k, p in self.params.items()}
 
     def medians(self) -> dict[str, float]:
         return {k: p.dist.median() for k, p in self.params.items()}
 
-    def with_distribution(self, name: str, dist_spec: dict) -> "ParameterRegistry":
+    def with_distribution(self, name: str, dist_spec: dict) -> ParameterRegistry:
         new = copy.deepcopy(self)
         spec = dict(new.params[name].spec)
         spec["distribution"] = dict(dist_spec)
@@ -117,23 +116,34 @@ class ModelConfig:
     scenarios: dict
     source_dir: Path = field(default=DEFAULT_CONFIG_DIR)
 
-    def copy(self) -> "ModelConfig":
+    def copy(self) -> ModelConfig:
         return copy.deepcopy(self)
 
 
 def _read(path: Path) -> dict:
-    with open(path, "r", encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+    with open(path, encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)  # safe_load: no arbitrary object construction from YAML tags
+    if not isinstance(data, dict):
+        raise ValueError(f"{path.name}: expected a mapping at the top level")
+    return data
 
 
-def load_config(config_dir: str | Path | None = None) -> ModelConfig:
+def load_config(config_dir: str | Path | None = None, validate: bool = True) -> ModelConfig:
+    """Load the five YAML files from ``config_dir`` (default: repo ``config/`` or $OFFSHORE_RISK_CONFIG).
+
+    With ``validate=True`` (the default) the configuration is checked by
+    :func:`offshore_risk.config_validation.validate_config`, which raises a
+    ``ConfigError`` listing every problem found.
+    """
     d = Path(config_dir) if config_dir else DEFAULT_CONFIG_DIR
+    if not d.is_dir():
+        raise FileNotFoundError(f"configuration directory not found: {d}")
     asset = _read(d / "asset_config.yaml")
     risk = _read(d / "risk_parameters.yaml")
     mit = _read(d / "mitigation_config.yaml")
     app = _read(d / "risk_appetite.yaml")
     scn = _read(d / "scenarios.yaml")
-    return ModelConfig(
+    cfg = ModelConfig(
         asset=asset,
         registry=ParameterRegistry(risk["epistemic"]),
         aleatory=risk["aleatory"],
@@ -145,3 +155,8 @@ def load_config(config_dir: str | Path | None = None) -> ModelConfig:
         scenarios=scn["scenarios"],
         source_dir=d,
     )
+    if validate:
+        from .config_validation import validate_config
+
+        validate_config(cfg)
+    return cfg

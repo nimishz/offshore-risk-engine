@@ -4,31 +4,52 @@ Palette: a colour-vision-deficiency-checked categorical order (blue, orange,
 aqua, yellow, magenta, green, violet, red), recessive grey chrome, text in ink
 colours rather than series colours. Series identity is always also given by a
 legend or a direct label.
+
+The module does not select a matplotlib backend: scripts run headless with
+``MPLBACKEND=Agg``; notebooks keep their inline backend.
 """
+
 from __future__ import annotations
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-from matplotlib.ticker import FuncFormatter  # noqa: E402
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.ticker import FuncFormatter
 
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
 INK, INK2, MUTED, GRID, AXIS, SURFACE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
 STATUS = {"Within appetite": "#0ca30c", "Near threshold": "#fab219", "Outside appetite": "#d03b3b"}
 
-plt.rcParams.update({
-    "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
-    "axes.edgecolor": AXIS, "axes.labelcolor": INK2, "axes.titlecolor": INK, "axes.titlesize": 12,
-    "axes.titleweight": "bold", "axes.titlelocation": "left", "axes.labelsize": 10,
-    "xtick.color": MUTED, "ytick.color": MUTED, "xtick.labelsize": 9, "ytick.labelsize": 9,
-    "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "axes.axisbelow": True,
-    "axes.spines.top": False, "axes.spines.right": False, "legend.frameon": False,
-    "legend.fontsize": 9, "legend.labelcolor": INK2, "font.family": "DejaVu Sans", "lines.linewidth": 2,
-    "figure.dpi": 110,
-})
+plt.rcParams.update(
+    {
+        "figure.facecolor": SURFACE,
+        "axes.facecolor": SURFACE,
+        "savefig.facecolor": SURFACE,
+        "axes.edgecolor": AXIS,
+        "axes.labelcolor": INK2,
+        "axes.titlecolor": INK,
+        "axes.titlesize": 12,
+        "axes.titleweight": "bold",
+        "axes.titlelocation": "left",
+        "axes.labelsize": 10,
+        "xtick.color": MUTED,
+        "ytick.color": MUTED,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "axes.grid": True,
+        "grid.color": GRID,
+        "grid.linewidth": 0.6,
+        "axes.axisbelow": True,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "legend.frameon": False,
+        "legend.fontsize": 9,
+        "legend.labelcolor": INK2,
+        "font.family": "DejaVu Sans",
+        "lines.linewidth": 2,
+        "figure.dpi": 110,
+    }
+)
 
 
 def musd(x, _=None):
@@ -45,10 +66,6 @@ def musd(x, _=None):
 MONEY = FuncFormatter(musd)
 
 
-def _note(fig, text):
-    fig.text(0.01, 0.005, text, fontsize=7.5, color=MUTED, ha="left", va="bottom")
-
-
 def loss_histogram(losses, metrics: dict, title="Simulated annual loss distribution", ax=None):
     fig, ax = (ax.figure, ax) if ax is not None else plt.subplots(figsize=(8, 4.2))
     x = np.asarray(losses)
@@ -61,8 +78,15 @@ def loss_histogram(losses, metrics: dict, title="Simulated annual loss distribut
     marks = [("Median", metrics["median"]), ("EAL", metrics["eal"]), ("P95", metrics["p95"]), ("P99", metrics["p99"])]
     for i, (lab, v) in enumerate(marks):
         ax.axvline(v, color=INK if lab in ("EAL",) else INK2, lw=1.2, ls="-" if lab == "EAL" else "--")
-        ax.text(v * 1.04, ymax * (0.95 - 0.09 * i), f"{lab} {musd(v)}", color=INK, fontsize=8.5, va="top",
-                bbox=dict(boxstyle="round,pad=0.2", fc=SURFACE, ec="none", alpha=0.9))
+        ax.text(
+            v * 1.04,
+            ymax * (0.95 - 0.09 * i),
+            f"{lab} {musd(v)}",
+            color=INK,
+            fontsize=8.5,
+            va="top",
+            bbox=dict(boxstyle="round,pad=0.2", fc=SURFACE, ec="none", alpha=0.9),
+        )
     ax.set_xlabel("Annual loss (log scale)")
     ax.set_ylabel("Simulated years")
     ax.set_title(title)
@@ -97,8 +121,9 @@ def exceedance_band(nested, pooled_losses=None, title="Loss exceedance: epistemi
     fig, ax = plt.subplots(figsize=(8, 4.5))
     g, lec = nested.lec_grid, nested.lec
     lo, med, hi = (np.quantile(lec, q, axis=0) for q in (0.05, 0.5, 0.95))
-    ax.fill_between(g, np.maximum(lo, 1e-6), np.maximum(hi, 1e-6), color=SERIES[0], alpha=0.18, lw=0,
-                    label="5-95 % of worlds (epistemic)")
+    ax.fill_between(
+        g, np.maximum(lo, 1e-6), np.maximum(hi, 1e-6), color=SERIES[0], alpha=0.18, lw=0, label="5-95 % of worlds (epistemic)"
+    )
     ax.plot(g, np.maximum(med, 1e-6), color=SERIES[0], label="Median world")
     if pooled_losses is not None:
         xs = np.sort(pooled_losses)
@@ -200,7 +225,7 @@ def sequential_posterior(df: pd.DataFrame, title, ylabel, truth=None):
 def convergence(df: pd.DataFrame, metrics=("eal", "p95", "p99", "es99")):
     fig, axes = plt.subplots(1, len(metrics), figsize=(3.1 * len(metrics), 3.4), sharex=True)
     for ax, m in zip(axes, metrics):
-        for s, g in df.groupby("seed"):
+        for _, g in df.groupby("seed"):
             ax.plot(g["n_years"], g[m], color=AXIS, lw=1, marker="o", ms=3)
         mean = df.groupby("n_years")[m].mean()
         ax.plot(mean.index, mean.values, color=SERIES[0], marker="o", ms=5, label="Mean over seeds")
@@ -220,8 +245,9 @@ def mitigation_effects(df: pd.DataFrame):
     d = df.sort_values("reduction_eal").reset_index(drop=True)
     fig, axes = plt.subplots(1, 3, figsize=(13, 0.45 * len(d) + 1.6), sharey=True)
     y = np.arange(len(d))
-    axes[0].barh(y, d["reduction_eal"], xerr=1.96 * d["reduction_eal_se"], color=SERIES[0], height=0.62,
-                 error_kw={"ecolor": INK2, "lw": 1})
+    axes[0].barh(
+        y, d["reduction_eal"], xerr=1.96 * d["reduction_eal_se"], color=SERIES[0], height=0.62, error_kw={"ecolor": INK2, "lw": 1}
+    )
     axes[0].set_title("EAL reduction (±95 % MC)", fontsize=11)
     axes[1].barh(y, d["reduction_es99"], color=SERIES[1], height=0.62)
     axes[1].set_title("ES99 reduction", fontsize=11)
@@ -300,7 +326,7 @@ def reliability_curves(shape, scale, lam_equiv, age_max=6.0):
     t = np.linspace(0.01, age_max, 300)
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.7))
     axes[0].plot(t, weibull_reliability(t, shape, scale), color=SERIES[0], label=f"Weibull (β={shape:.1f}, η={scale:.1f} y)")
-    axes[0].plot(t, exp_reliability(lam_equiv, t), color=SERIES[1], ls="--", label=f"Exponential (same mean life)")
+    axes[0].plot(t, exp_reliability(lam_equiv, t), color=SERIES[1], ls="--", label="Exponential (same mean life)")
     axes[0].set_xlabel("Years since overhaul")
     axes[0].set_ylabel("R(t)")
     axes[0].set_title("Reliability of one compressor train", fontsize=11)
@@ -342,8 +368,16 @@ def asset_diagram(asset, single_outage: pd.DataFrame | None = None):
     for c, (x, y) in pos.items():
         ax.add_patch(plt.Rectangle((x - 0.62, y - 0.32), 1.24, 0.64, fc="white", ec=INK2, lw=1.2, zorder=2))
         ax.text(x, y + 0.1, c, ha="center", va="center", fontsize=12, fontweight="bold", color=INK, zorder=3)
-        ax.text(x, y - 0.13, asset.names[c].replace(" Platform", "").replace("Production", "Prod.").replace(" / ", "/"),
-                ha="center", va="center", fontsize=7, color=INK2, zorder=3)
+        ax.text(
+            x,
+            y - 0.13,
+            asset.names[c].replace(" Platform", "").replace("Production", "Prod.").replace(" / ", "/"),
+            ha="center",
+            va="center",
+            fontsize=7,
+            color=INK2,
+            zorder=3,
+        )
         q = asset.production_bopd[asset.index(c)]
         if q > 0:
             ax.text(x, y + 0.45, f"{q / 1000:.0f} kbbl/d", ha="center", fontsize=8, color=INK2)

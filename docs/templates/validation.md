@@ -1,0 +1,88 @@
+# Validation
+
+Validation here means: *does the code compute what the methodology says it
+computes, are the inputs well-formed, and are the Monte Carlo estimates stable?*
+It cannot show that the parameters are right for any real asset (see
+[limitations](limitations.md)).
+
+Three layers:
+
+1. **Configuration validation** (`offshore_risk.config_validation`, run on every
+   `load_config`). It checks required fields, the basis vocabulary,
+   probabilities within [0, 1], non-negative rates and costs, known parameter
+   and platform names in mitigations, scenarios and outcome tables, an acyclic
+   dependency graph, positive-definite driver correlations, voting
+   architectures with k ≤ n, and forced escalation targets that are real bridge
+   neighbours. All problems are reported together.
+2. **Unit tests** (`pytest`, {{n_tests}} tests): analytical checks of each module
+   against closed forms, brute force or independent simulation.
+3. **Model-level checks** (`python scripts/run_validation.py`): convergence,
+   event-tree consistency inside the full engine, dependence behaviour,
+   optimiser vs exhaustive search, Bayesian interval coverage and edge cases.
+   Output: [`validation_results.md`](validation_results.md).
+
+In addition, `scripts/render_docs.py` re-checks the qualitative claims made in
+the README against the results before regenerating it. Ruff enforces lint and
+formatting, and CI runs all of this on every push.
+
+## Unit tests
+
+| Module | What is checked | Reference used |
+|---|---|---|
+| distributions | ppf/cdf round trip; sample mean vs analytic mean; error-factor definition; LHS stratification; mean-1 lognormal multiplier | closed form |
+| reliability | exponential & Weibull identities; Weibull mean by numerical integration; NHPP increment; series/parallel/k-of-n; standby reliability vs Monte Carlo; 1oo2 PFD vs exact integral and vs Monte Carlo; 2oo3 repairable frequency vs discrete-event simulation; CCF dominance; no CCF term for a single channel | integration, simulation |
+| fault tree | exact (Shannon) = brute-force enumeration on random trees and on the fire-protection tree for several pump architectures; unique basic-event names for any architecture; more pumps never worse; clipping of basic-event probabilities; naive gate multiplication shown to under-estimate with shared events; minimal cut sets (incl. k-of-n, non-minimal removal); rare-event and MCUB bounds; importance measures | enumeration of 2^n states |
+| event tree | outcomes sum to 1; hand-computed path probabilities; sampled outcome frequencies vs analytic; severity-ordered sampling is monotone; degenerate branches | hand calculation |
+| Bayesian | conjugate posterior = grid posterior (Beta-Binomial and Gamma-Poisson); moment matching; more data narrows intervals; predictive overdispersion; calibration pipeline leaves the base config untouched | numerical integration |
+| asset | capacity bounds and monotonicity over all 64 down-sets; hand-computed dependency cases; topological order; piecewise integration of lost production | hand calculation |
+| engine | reproducibility by seed; accounting identities (sources = components); event counts = rates; **CRN monotonicity** (a frequency-only control never increases loss in any year); zero-rate edge case; forced event adds exactly its own loss; restart costs only for process platforms; every outage duration capped; settings and theta validation; chunking; event log reconciles to annual totals | internal consistency |
+| metrics | known samples; ES ≥ VaR; exceedance; Euler allocation sums to ES; bootstrap; CRF; appetite classification | closed form |
+| optimisation | MILP = brute force on random quadratic knapsacks; budget respected; zero budget; additive knapsack; end-to-end optimiser = exhaustive search | enumeration |
+| analysis layers | nested run orderings (ES99 ≥ P99 ≥ P95, non-increasing exceedance curves); tornado directions; scenario increments = forced-event loss; scenario frequencies; mitigations reduce risk; appetite from a simulation; deterministic synthetic data; data dictionary covers every parameter | internal consistency |
+| configuration | shipped configuration is valid; each class of error is detected (probability > 1, negative support, bad basis, cycles, unknown names, bad ops, non-neighbour escalation, non-PD correlation, unknown appetite metric); all problems reported at once | constructed failures |
+
+## Model-level results
+
+From [`validation_results.md`](validation_results.md).
+
+**Convergence**: coefficient of variation across {{n_seeds}} seeds.
+
+{{table_convergence}}
+
+At 100k years the EAL and P95 vary by {{cv100_eal}} and {{cv100_p95}} between seeds, and
+P99 and ES99 by {{cv100_p99}} and {{cv100_es99}}. The tail metrics converge more slowly
+({{cv10_p99}} and {{cv10_es99}} at 10k years) because they are driven by rare
+major-accident years. Headline tail metrics are
+therefore reported with bootstrap intervals, and decisions that hinge on tail
+differences use common random numbers.
+
+**Event tree inside the engine**: {{et_releases}} simulated releases at median
+parameters. The largest deviation of any outcome share from the analytic
+event-tree probability is |z| = {{et_max_z}}.
+
+**Dependence**: Model A and B have the same event frequencies (ratio
+{{dep_freq_ratio}}). Model B changes P90 by {{dep_p90}}, P95 by {{dep_p95}}, P99 by {{dep_p99}} and ES99
+by {{dep_es99}}. A deliberately extreme correlation stress (0.7–0.9) changes P95 by
+{{strong_p95}} and ES99 by {{strong_es99}}.
+
+**Optimisation**: for both the EAL and ES99 objectives, the MILP selection equals
+the best of all {{n_feasible}} feasible portfolios, each one simulated.
+
+**Bayesian coverage**: with the truth drawn from the prior, nominal 90 % posterior
+intervals covered the truth in {{coverage}} of {{coverage_reps}} synthetic data sets.
+
+**Edge cases**: a zero value fraction gives zero business interruption; zero
+ignition probability gives no fires; a failed firewater header gives PFD = 1;
+a one-year run works.
+
+## Distribution assumptions
+
+Distribution families are chosen by the nature of the quantity, not by fit to
+data (there is none):
+* lognormal for rates spanning orders of magnitude (expressed as median and error factor);
+* Beta for probabilities;
+* triangular for bounded judgements with a most-likely value;
+* lognormal for durations and costs (positive, right-skewed);
+* mean-one lognormal for year-level multipliers.
+
+The tornado analysis shows how much each assumed range moves the result.

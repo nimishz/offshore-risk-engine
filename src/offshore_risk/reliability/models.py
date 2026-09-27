@@ -10,6 +10,7 @@ Conventions
   proof-tested, low-demand safety function (simplified IEC 61508-6 forms;
   repair time and diagnostic coverage neglected, proof tests assumed perfect).
 """
+
 from __future__ import annotations
 
 from math import comb

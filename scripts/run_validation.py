@@ -6,9 +6,15 @@ outputs/figures/convergence.png.
     python scripts/run_validation.py            # full (~3 min)
     python scripts/run_validation.py --quick
 """
+
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("MPLBACKEND", "Agg")  # headless figure output
+
 import argparse
+import json
 import time
 
 import numpy as np
@@ -44,7 +50,9 @@ def convergence(cfg, sizes, seeds):
         for s in seeds:
             L = simulate(cfg, n_years=n, seed=s).total
             m = risk_metrics(L)
-            rows.append({"n_years": n, "seed": s, **{k: m[k] for k in ("eal", "median", "p95", "p99", "es99")}, "se_eal": m["se_eal"]})
+            rows.append(
+                {"n_years": n, "seed": s, **{k: m[k] for k in ("eal", "median", "p95", "p99", "es99")}, "se_eal": m["se_eal"]}
+            )
     df = pd.DataFrame(rows)
     agg = df.groupby("n_years")[["eal", "p95", "p99", "es99"]].agg(["mean", "std"])
     cv = pd.DataFrame({m: agg[(m, "std")] / agg[(m, "mean")] for m in ("eal", "p95", "p99", "es99")})
@@ -68,9 +76,14 @@ def event_tree_check(cfg, n_years):
         g = asset.gas_fraction[i]
         for s in range(3):
             for gas, wp in ((True, g), (False, 1 - g)):
-                p = {"p_detect": d.p_detect[0, s], "p_isolate": d.p_isolate[0], "p_ign": d.p_ign[0, s],
-                     "p_ign_iso": d.p_ign[0, s] * th["ign_isolation_factor"][0],
-                     "p_exp": d.p_exp[0, s] * (1 if gas else th["liquid_explosion_factor"][0]), "p_fp_ok": 1 - d.pfd_fp[0, i]}
+                p = {
+                    "p_detect": d.p_detect[0, s],
+                    "p_isolate": d.p_isolate[0],
+                    "p_ign": d.p_ign[0, s],
+                    "p_ign_iso": d.p_ign[0, s] * th["ign_isolation_factor"][0],
+                    "p_exp": d.p_exp[0, s] * (1 if gas else th["liquid_explosion_factor"][0]),
+                    "p_fp_ok": 1 - d.pfd_fp[0, i],
+                }
                 op = RELEASE_TREE.outcome_probabilities(p)
                 for o in OUTCOMES:
                     tot[o] += lam / rates.sum() * d.size_probs[0, s] * wp * float(op[o])
@@ -78,7 +91,15 @@ def event_tree_check(cfg, n_years):
     for o in OUTCOMES:
         k = int((ev["detail"] == o).sum())
         se = np.sqrt(tot[o] * (1 - tot[o]) / n)
-        rows.append({"outcome": o, "analytic": tot[o], "simulated": k / n, "events": k, "z_score": (k / n - tot[o]) / se if se > 0 else 0.0})
+        rows.append(
+            {
+                "outcome": o,
+                "analytic": tot[o],
+                "simulated": k / n,
+                "events": k,
+                "z_score": (k / n - tot[o]) / se if se > 0 else 0.0,
+            }
+        )
     return pd.DataFrame(rows), n
 
 
@@ -111,22 +132,32 @@ def main(quick=False):
     # dependence: same frequencies, different tails
     a = simulate(cfg, n_years=100_000, seed=SEED, dependence="independent")
     b = simulate(cfg, n_years=100_000, seed=SEED, dependence="correlated")
-    dep = pd.DataFrame([
-        {"check": "mean releases per year", "model_a": a.counts["releases"].mean(), "model_b": b.counts["releases"].mean()},
-        {"check": "mean compressor loss (USD)", "model_a": a.loss_by_source[:, SOURCES.index("compressor")].mean(), "model_b": b.loss_by_source[:, SOURCES.index("compressor")].mean()},
-        {"check": "EAL (USD)", "model_a": a.total.mean(), "model_b": b.total.mean()},
-        {"check": "P90 (USD)", "model_a": np.quantile(a.total, .9), "model_b": np.quantile(b.total, .9)},
-        {"check": "P95 (USD)", "model_a": np.quantile(a.total, .95), "model_b": np.quantile(b.total, .95)},
-        {"check": "P99 (USD)", "model_a": np.quantile(a.total, .99), "model_b": np.quantile(b.total, .99)},
-        {"check": "ES99 (USD)", "model_a": expected_shortfall(a.total, .99), "model_b": expected_shortfall(b.total, .99)},
-    ])
+    dep = pd.DataFrame(
+        [
+            {"check": "mean releases per year", "model_a": a.counts["releases"].mean(), "model_b": b.counts["releases"].mean()},
+            {
+                "check": "mean compressor loss (USD)",
+                "model_a": a.loss_by_source[:, SOURCES.index("compressor")].mean(),
+                "model_b": b.loss_by_source[:, SOURCES.index("compressor")].mean(),
+            },
+            {"check": "EAL (USD)", "model_a": a.total.mean(), "model_b": b.total.mean()},
+            {"check": "P90 (USD)", "model_a": np.quantile(a.total, 0.9), "model_b": np.quantile(b.total, 0.9)},
+            {"check": "P95 (USD)", "model_a": np.quantile(a.total, 0.95), "model_b": np.quantile(b.total, 0.95)},
+            {"check": "P99 (USD)", "model_a": np.quantile(a.total, 0.99), "model_b": np.quantile(b.total, 0.99)},
+            {"check": "ES99 (USD)", "model_a": expected_shortfall(a.total, 0.99), "model_b": expected_shortfall(b.total, 0.99)},
+        ]
+    )
     dep["ratio_b_over_a"] = dep["model_b"] / dep["model_a"]
     # stronger dependence stress: correlations scaled up
     strong = cfg.copy()
     strong.drivers["correlation"] = [[1.0, 0.9, 0.7], [0.9, 1.0, 0.8], [0.7, 0.8, 1.0]]
     s = simulate(strong, n_years=100_000, seed=SEED, dependence="correlated")
-    dep_strong = {"P95": np.quantile(s.total, .95) / np.quantile(a.total, .95), "P99": np.quantile(s.total, .99) / np.quantile(a.total, .99),
-                  "ES99": expected_shortfall(s.total, .99) / expected_shortfall(a.total, .99), "EAL": s.total.mean() / a.total.mean()}
+    dep_strong = {
+        "P95": np.quantile(s.total, 0.95) / np.quantile(a.total, 0.95),
+        "P99": np.quantile(s.total, 0.99) / np.quantile(a.total, 0.99),
+        "ES99": expected_shortfall(s.total, 0.99) / expected_shortfall(a.total, 0.99),
+        "EAL": s.total.mean() / a.total.mean(),
+    }
     print(f"dependence {time.time() - t0:.0f}s")
 
     # optimisation: MILP vs exhaustive enumeration
@@ -135,10 +166,20 @@ def main(quick=False):
     for obj in ("eal", "es99"):
         r = opt.optimise(objective=obj)
         best, best_v, table = opt.exhaustive(objective=obj)
-        opt_rows.append({"objective": obj, "milp_selection": " + ".join(r["selected"]), "milp_value_simulated": r["simulated_value"],
-                         "milp_value_predicted": r["predicted_value"], "exhaustive_best": " + ".join(best), "exhaustive_value": best_v,
-                         "feasible_portfolios": len(table), "milp_rank": int((table["value"] > r["simulated_value"] + 1e-6).sum()) + 1,
-                         "capex": r["capex"], "budget": r["budget"]})
+        opt_rows.append(
+            {
+                "objective": obj,
+                "milp_selection": " + ".join(r["selected"]),
+                "milp_value_simulated": r["simulated_value"],
+                "milp_value_predicted": r["predicted_value"],
+                "exhaustive_best": " + ".join(best),
+                "exhaustive_value": best_v,
+                "feasible_portfolios": len(table),
+                "milp_rank": int((table["value"] > r["simulated_value"] + 1e-6).sum()) + 1,
+                "capex": r["capex"],
+                "budget": r["budget"],
+            }
+        )
     optdf = pd.DataFrame(opt_rows)
     print(f"optimisation {time.time() - t0:.0f}s")
 
@@ -148,16 +189,57 @@ def main(quick=False):
     edge = []
     sc = ScenarioSpec(overrides={"bi_value_fraction": {"op": "set", "value": 0.0}})
     r0 = Simulator(cfg, scenario=sc).run(SimulationSettings(n_years=5000, seed=1))
-    edge.append({"case": "bi_value_fraction = 0", "expected": "business interruption = 0", "result": f"BI total = {r0.loss_by_component[:, 5].sum():.0f}"})
-    sc = ScenarioSpec(overrides={"p_ign_small": {"op": "set", "value": 0.0}, "p_ign_medium": {"op": "set", "value": 0.0}, "p_ign_large": {"op": "set", "value": 0.0}})
+    edge.append(
+        {
+            "case": "bi_value_fraction = 0",
+            "expected": "business interruption = 0",
+            "result": f"BI total = {r0.loss_by_component[:, 5].sum():.0f}",
+        }
+    )
+    sc = ScenarioSpec(
+        overrides={
+            "p_ign_small": {"op": "set", "value": 0.0},
+            "p_ign_medium": {"op": "set", "value": 0.0},
+            "p_ign_large": {"op": "set", "value": 0.0},
+        }
+    )
     r1 = Simulator(cfg, scenario=sc).run(SimulationSettings(n_years=20000, seed=1))
-    edge.append({"case": "all ignition probabilities = 0", "expected": "no fires or explosions", "result": f"fires = {r1.counts['fires'].sum()}, explosions = {r1.counts['explosions'].sum()}"})
+    edge.append(
+        {
+            "case": "all ignition probabilities = 0",
+            "expected": "no fires or explosions",
+            "result": f"fires = {r1.counts['fires'].sum()}, explosions = {r1.counts['explosions'].sum()}",
+        }
+    )
     sc = ScenarioSpec(overrides={"fw_header_fail": {"op": "set", "value": 1.0}})
     r2 = Simulator(cfg, scenario=sc).run(SimulationSettings(n_years=2000, seed=1))
-    edge.append({"case": "firewater header always failed", "expected": "firewater PFD = 1", "result": f"PFD firewater (PPA) = {r2.derived_means['pfd_firewater'][1]:.3f}"})
+    edge.append(
+        {
+            "case": "firewater header always failed",
+            "expected": "firewater PFD = 1",
+            "result": f"PFD firewater (PPA) = {r2.derived_means['pfd_firewater'][1]:.3f}",
+        }
+    )
     r3 = Simulator(cfg).run(SimulationSettings(n_years=1, seed=1))
     edge.append({"case": "one simulated year", "expected": "runs", "result": f"loss = {r3.total[0]:,.0f}"})
     edgedf = pd.DataFrame(edge)
+
+    summary = {
+        "mode": "quick" if quick else "full",
+        "seeds": seeds,
+        "convergence_cv": {str(int(k)): {m: float(v) for m, v in row.items()} for k, row in cv.iterrows()},
+        "event_tree_releases": int(n_rel),
+        "event_tree_max_abs_z": float(et["z_score"].abs().max()),
+        "dependence": {
+            r["check"]: {"model_a": float(r["model_a"]), "model_b": float(r["model_b"]), "ratio": float(r["ratio_b_over_a"])}
+            for _, r in dep.iterrows()
+        },
+        "dependence_strong": {k: float(v) for k, v in dep_strong.items()},
+        "optimisation": optdf.to_dict("records"),
+        "bayes_coverage": float(cov),
+        "bayes_coverage_reps": 500 if quick else 2000,
+    }
+    (RES / "validation_summary.json").write_text(json.dumps(summary, indent=2, default=float))
 
     lines = [
         "# Validation results",
@@ -172,7 +254,12 @@ def main(quick=False):
         "",
         "Estimates per run (USD millions):",
         "",
-        md_table(conv.assign(**{c: conv[c] / 1e6 for c in ("eal", "median", "p95", "p99", "es99", "se_eal")}).astype({"n_years": str, "seed": str}), "{:.2f}"),
+        md_table(
+            conv.assign(**{c: conv[c] / 1e6 for c in ("eal", "median", "p95", "p99", "es99", "se_eal")}).astype(
+                {"n_years": str, "seed": str}
+            ),
+            "{:.2f}",
+        ),
         "",
         "![convergence](../outputs/figures/convergence.png)",
         "",

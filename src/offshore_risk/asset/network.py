@@ -11,6 +11,7 @@ Two different relationships between platforms are kept separate:
 Production capacity for every combination of 'down' platforms (2^6 = 64) is
 pre-computed so the simulation can look it up with a bit mask.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,9 +25,9 @@ import pandas as pd
 class AssetModel:
     codes: list[str]
     names: dict[str, str]
-    production_bopd: np.ndarray        # nominal, per platform
-    replacement_value: np.ndarray      # USD, per platform
-    release_factor: np.ndarray         # relative leak-source count
+    production_bopd: np.ndarray  # nominal, per platform
+    replacement_value: np.ndarray  # USD, per platform
+    release_factor: np.ndarray  # relative leak-source count
     gas_fraction: np.ndarray
     p_power_loss_given_fire: np.ndarray
     dependencies: list[dict]
@@ -35,10 +36,13 @@ class AssetModel:
     pipeline_km: float
 
     @classmethod
-    def from_config(cls, asset_cfg: dict) -> "AssetModel":
+    def from_config(cls, asset_cfg: dict) -> AssetModel:
         plats = asset_cfg["platforms"]
         codes = list(plats)
-        g = lambda key: np.array([float(plats[c].get(key, 0.0)) for c in codes])
+
+        def g(key: str) -> np.ndarray:
+            return np.array([float(plats[c].get(key, 0.0)) for c in codes])
+
         return cls(
             codes=codes,
             names={c: plats[c]["name"] for c in codes},
@@ -62,6 +66,15 @@ class AssetModel:
         return self.codes.index(code)
 
     @property
+    def process_mask(self) -> np.ndarray:
+        """Platforms with hydrocarbon process inventory (they need a restart after a shutdown)."""
+        return self.release_factor > 0
+
+    @property
+    def producer_mask(self) -> np.ndarray:
+        return self.production_bopd > 0
+
+    @property
     def total_production(self) -> float:
         return float(self.production_bopd.sum())
 
@@ -77,7 +90,10 @@ class AssetModel:
     def neighbour_matrix(self, max_neighbours: int | None = None) -> np.ndarray:
         """(n, max_neighbours) int array of neighbour indices, padded with -1."""
         nb = [[self.index(x) for x in self.neighbours(c)] for c in self.codes]
-        m = max_neighbours or max(len(x) for x in nb)
+        needed = max([len(x) for x in nb] + [1])
+        m = max_neighbours or needed
+        if m < needed:
+            raise ValueError(f"a platform has {needed} bridge neighbours; max_neighbours={m} is too small")
         out = -np.ones((self.n, m), dtype=int)
         for i, row in enumerate(nb):
             out[i, : len(row)] = row

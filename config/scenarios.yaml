@@ -3,8 +3,8 @@
 # `forced_events` are added to every simulated year; `overrides` change epistemic
 # parameters (op: set | multiply); `architecture` changes protection-system structure.
 # Probabilities are reported as the model's annual frequency of the initiating
-# event where that is well defined (method in `frequency`), otherwise as a
-# described state probability.
+# event where that is well defined (method in `frequency`); a degraded state
+# (`frequency: state`) is reported as conditional, with no frequency.
 
 scenarios:
   S1_single_equipment_failure:
@@ -61,6 +61,7 @@ scenarios:
       - {type: compressor}
     logistics_multiplier: 1.5
     frequency: weather_and_compressor
+    frequency_window_days: 10     # compressor failure within 10 days of the storm (approximation)
 
   S6_common_cause_power_failure:
     title: Common-cause power failure
@@ -71,6 +72,7 @@ scenarios:
     forced_events:
       - {type: power_loss, restart_days_median: 5.0}
     frequency: power_ccf
+    report_pfd_with_power_lost: true
 
   S7_high_price_prolonged_outage:
     title: High commodity price + prolonged outage

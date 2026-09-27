@@ -8,10 +8,12 @@ uniform ``u``. Using one mechanism everywhere gives, for free:
 * one-at-a-time sensitivity (``u = 0.1`` / ``0.9``),
 * common random numbers between runs that differ only in parameters.
 """
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 from scipy import stats

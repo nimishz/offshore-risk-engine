@@ -13,6 +13,7 @@ Three complementary views:
    estimated by binning the nested sample on quantiles of X_i. A screening
    estimate; a value near the null level (B-1)/N is indistinguishable from zero.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -32,8 +33,16 @@ _METRICS = {
 }
 
 
-def tornado(cfg: ModelConfig, n_years: int = 20_000, seed: int = 20260927, params=None,
-            low: float = 0.10, high: float = 0.90, metrics=("eal", "p99"), dependence: str = "correlated") -> pd.DataFrame:
+def tornado(
+    cfg: ModelConfig,
+    n_years: int = 20_000,
+    seed: int = 20260927,
+    params=None,
+    low: float = 0.10,
+    high: float = 0.90,
+    metrics=("eal", "p99"),
+    dependence: str = "correlated",
+) -> pd.DataFrame:
     reg = cfg.registry
     params = list(params) if params is not None else reg.uncertain_names()
     sim = Simulator(cfg)
@@ -42,8 +51,14 @@ def tornado(cfg: ModelConfig, n_years: int = 20_000, seed: int = 20260927, param
     base = {m: _METRICS[m](base_L) for m in metrics}
     rows = []
     for p in params:
-        row = {"parameter": p, "unit": reg[p].unit, "definition": reg[p].spec.get("definition", ""),
-               "value_low": reg[p].dist.quantile(low), "value_median": reg[p].dist.median(), "value_high": reg[p].dist.quantile(high)}
+        row = {
+            "parameter": p,
+            "unit": reg[p].unit,
+            "definition": reg[p].spec.get("definition", ""),
+            "value_low": reg[p].dist.quantile(low),
+            "value_median": reg[p].dist.median(),
+            "value_high": reg[p].dist.quantile(high),
+        }
         for tag, q in (("low", low), ("high", high)):
             L = sim.run(st, theta=reg.at_quantile(n_years, 0.5, {p: q})).total
             for m in metrics:

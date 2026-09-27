@@ -14,12 +14,14 @@ One simulated year:
 Random numbers come from named streams seeded by (seed, chunk, stream name),
 so a run with a mitigation re-uses exactly the same random numbers as the
 baseline for everything the mitigation does not touch (common random numbers).
+Results are reproducible for a given seed and chunk size.
 """
+
 from __future__ import annotations
 
 import zlib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -29,17 +31,19 @@ from ..asset.network import AssetModel, lost_production_bbl
 from ..config import ModelConfig
 from ..distributions import beta_from_mean, make_distribution
 from ..event_tree.hydrocarbon_release import OUTCOMES, RELEASE_TREE
-from ..financial.loss_model import C, COMPONENTS, SCENARIO_ONLY, FinancialModel
+from ..financial.loss_model import COMPONENTS, DIRECT, SCENARIO_ONLY, C, FinancialModel
 from ..mitigation.controls import apply_mitigations, apply_overrides
-from .dependence import sample_drivers
-from .derived import SIZES, Derived, derive
+from .dependence import MODELS, sample_drivers
+from .derived import SIZES, derive
 
 SOURCES = ["release", "compressor", "power_loss", "pipeline", "spurious_trip", "weather", "collision", "scenario_event"]
-S = {name: i for i, name in enumerate(SOURCES)}
-O = {name: i for i, name in enumerate(OUTCOMES)}
+SOURCE_IDX = {name: i for i, name in enumerate(SOURCES)}
+OUTCOME_IDX = {name: i for i, name in enumerate(OUTCOMES)}
 COUNT_KEYS = ["releases", "fires", "explosions", "catastrophic", "escalations", "evacuations"]
+EPISTEMIC_MODES = ("pooled", "median")
 _ISOLATED_LEAF = RELEASE_TREE.leaf_attribute("Isolated")
 _EPS = 1e-12
+_SIMPLE_U = 6  # uniforms used per event by the non-release handlers
 
 
 def _ln(median, sigma, u):
@@ -51,11 +55,24 @@ def _ln(median, sigma, u):
 class SimulationSettings:
     n_years: int = 20_000
     seed: int = 20260927
-    dependence: str = "correlated"      # "independent" (Model A) | "correlated" (Model B)
-    epistemic: str = "pooled"           # "pooled" | "median"
+    dependence: str = "correlated"  # "independent" (Model A) | "correlated" (Model B)
+    epistemic: str = "pooled"  # "pooled" | "median"
     chunk_size: int = 25_000
     include_env_cost: bool = False
     record_events: bool = False
+
+    def __post_init__(self):
+        if int(self.n_years) < 1:
+            raise ValueError("n_years must be at least 1")
+        if int(self.chunk_size) < 1:
+            raise ValueError("chunk_size must be at least 1")
+        if not 0 <= int(self.seed) < 2**63:
+            raise ValueError("seed must be a non-negative integer")
+        if self.dependence not in MODELS:
+            raise ValueError(f"dependence must be one of {MODELS}, got {self.dependence!r}")
+        if self.epistemic not in EPISTEMIC_MODES:
+            raise ValueError(f"epistemic must be one of {EPISTEMIC_MODES}, got {self.epistemic!r}")
+        self.n_years, self.chunk_size, self.seed = int(self.n_years), int(self.chunk_size), int(self.seed)
 
 
 @dataclass
@@ -68,13 +85,14 @@ class ScenarioSpec:
     logistics_multiplier: float = 1.0
 
     @classmethod
-    def from_config(cls, key: str, spec: dict) -> "ScenarioSpec":
+    def from_config(cls, key: str, spec: dict) -> ScenarioSpec:
+        price = spec.get("price_override")
         return cls(
             name=key,
-            forced_events=list(spec.get("forced_events", [])),
+            forced_events=list(spec.get("forced_events", []) or []),
             overrides=dict(spec.get("overrides", {}) or {}),
             architecture=dict(spec.get("architecture", {}) or {}),
-            price_override=spec.get("price_override"),
+            price_override=None if price is None else float(price),
             logistics_multiplier=float(spec.get("logistics_multiplier", 1.0)),
         )
 
@@ -84,19 +102,17 @@ class SimulationResult:
     loss_by_source: np.ndarray
     loss_by_component: np.ndarray
     lost_bbl: np.ndarray
-    downtime_days: np.ndarray        # lost production in equivalent days of full-complex output
+    downtime_days: np.ndarray  # lost production in equivalent days of full-complex output
     max_event_loss: np.ndarray
     env_proxy_bbl: np.ndarray
     counts: dict
     derived_means: dict
     settings: SimulationSettings
+    platforms: tuple = ()
+    producers: tuple = ()
     mitigations: tuple = ()
     scenario: str = "baseline"
     events: pd.DataFrame | None = None
-
-    @property
-    def included_components(self) -> list[str]:
-        return [c for c in COMPONENTS if self.settings.include_env_cost or c not in SCENARIO_ONLY]
 
     @property
     def total(self) -> np.ndarray:
@@ -107,6 +123,10 @@ class SimulationResult:
 
     def source_frame(self) -> pd.DataFrame:
         return pd.DataFrame(self.loss_by_source, columns=SOURCES)
+
+    def platform_value(self, key: str, platform: str) -> float:
+        """Per-platform derived mean (e.g. 'pfd_fire_protection') for a platform code."""
+        return float(self.derived_means[key][self.platforms.index(platform)])
 
     @property
     def n_years(self) -> int:
@@ -123,6 +143,7 @@ class _Accumulator:
         self.max_event = np.zeros(n)
         self.counts = {k: np.zeros(n, dtype=np.int64) for k in COUNT_KEYS}
         self.include = np.array([include_env or c not in SCENARIO_ONLY for c in COMPONENTS])
+        self.direct_idx = [C[c] for c in DIRECT]
         self.record = record
         self.rows: list[pd.DataFrame] = []
         self.pf = np.ones(n)
@@ -134,28 +155,29 @@ class _Accumulator:
         ev_total = comps[:, self.include].sum(axis=1)
         for j in range(comps.shape[1]):
             self.by_comp[:, j] += np.bincount(year, weights=comps[:, j], minlength=self.n)
-        self.by_source[:, S[source]] += np.bincount(year, weights=ev_total, minlength=self.n)
+        self.by_source[:, SOURCE_IDX[source]] += np.bincount(year, weights=ev_total, minlength=self.n)
         self.lost += np.bincount(year, weights=batch["lost"], minlength=self.n)
         self.spill += np.bincount(year, weights=batch["spill"], minlength=self.n)
         np.maximum.at(self.max_event, year, ev_total)
         for k, v in batch.get("flags", {}).items():
             self.counts[k] += np.bincount(year, weights=v.astype(float), minlength=self.n).astype(np.int64)
         if self.record:
-            df = pd.DataFrame(
-                {
-                    "year": year + year_offset,
-                    "source": source,
-                    "platform": batch.get("platform", np.full(len(year), "")),
-                    "detail": batch.get("detail", np.full(len(year), "")),
-                    "downtime_days": batch.get("downtime", np.zeros(len(year))),
-                    "lost_bbl": batch["lost"],
-                    "direct_usd": comps[:, [C[c] for c in ("property_damage", "equipment_repair", "emergency_response", "logistics", "restart")]].sum(axis=1),
-                    "business_interruption_usd": comps[:, C["business_interruption"]],
-                    "total_usd": ev_total,
-                    "spill_bbl": batch["spill"],
-                }
+            self.rows.append(
+                pd.DataFrame(
+                    {
+                        "year": year + year_offset,
+                        "source": source,
+                        "platform": batch.get("platform", np.full(len(year), "")),
+                        "detail": batch.get("detail", np.full(len(year), "")),
+                        "downtime_days": batch.get("downtime", np.zeros(len(year))),
+                        "lost_bbl": batch["lost"],
+                        "direct_usd": comps[:, self.direct_idx].sum(axis=1),
+                        "business_interruption_usd": comps[:, C["business_interruption"]],
+                        "total_usd": ev_total,
+                        "spill_bbl": batch["spill"],
+                    }
+                )
             )
-            self.rows.append(df)
 
 
 class Simulator:
@@ -172,18 +194,27 @@ class Simulator:
         self.scenario = scenario or ScenarioSpec()
         self.cap_table = self.asset.capacity_table()
         self.q_total = self.cap_table[0]
-        self.nb = self.asset.neighbour_matrix(3)
+        self.nb = self.asset.neighbour_matrix()
+        self.k_nb = self.nb.shape[1]
+        self.n_release_u = 10 + self.k_nb  # uniforms consumed by one release (see _release)
         self.al = cfg.aleatory
+        self.sigma = float(self.al["downtime_sigma"])
+        self.cost_sigma = float(self.al["cost_sigma"])
+        self.max_dt = float(self.al["max_event_downtime_days"])
         self._price_dist = make_distribution(cfg.financial["oil_price"])
         idx = self.asset.index
         self.trip_idx = np.array([idx(c) for c in self.al["trip_platforms"]])
         tgt = self.al["collision_targets"]
         self.coll_idx = np.array([idx(c) for c in tgt])
         self.coll_cdf = np.cumsum(np.array(list(tgt.values()), dtype=float) / sum(tgt.values()))
-        self.lq = idx("LQ")
+        self.lq = idx("LQ") if "LQ" in self.asset.codes else -1
+        self.process = self.asset.process_mask
+        self.n_process = int(self.process.sum())
+        self.n_producers = int(self.asset.producer_mask.sum())
 
     # ------------------------------------------------------------------ utils
-    def _rng(self, seed: int, chunk: int, name: str) -> np.random.Generator:
+    @staticmethod
+    def _rng(seed: int, chunk: int, name: str) -> np.random.Generator:
         return np.random.default_rng([seed, chunk, zlib.crc32(name.encode())])
 
     def _outcome_table(self, theta: Mapping, key: str, n: int) -> np.ndarray:
@@ -194,12 +225,22 @@ class Simulator:
             out[:, j] = theta[v] if isinstance(v, str) else float(v)
         return out
 
+    def _dt(self, median, u, L=1.0):
+        """Per-event outage duration: lognormal around the median, x logistics factor, capped."""
+        return np.minimum(_ln(median, self.sigma, u) * L, self.max_dt)
+
     # ------------------------------------------------------------------ run
     def run(self, settings: SimulationSettings | None = None, theta: Mapping[str, np.ndarray] | None = None) -> SimulationResult:
         st = settings or SimulationSettings()
+        if theta is not None:
+            lengths = {len(np.atleast_1d(v)) for v in theta.values()}
+            if len(lengths) != 1:
+                raise ValueError("all theta arrays must have the same length")
+            missing = set(self.cfg.registry.names) - set(theta)
+            if missing:
+                raise KeyError(f"theta is missing parameters: {sorted(missing)}")
         n_total = st.n_years if theta is None else len(next(iter(theta.values())))
-        parts = []
-        derived_acc: dict[str, list] = {}
+        parts, derived_acc = [], {}
         for c, start in enumerate(range(0, n_total, st.chunk_size)):
             n = min(st.chunk_size, n_total - start)
             th = None if theta is None else {k: np.asarray(v)[start : start + n] for k, v in theta.items()}
@@ -207,22 +248,28 @@ class Simulator:
             parts.append(acc)
             for k, v in dm.items():
                 derived_acc.setdefault(k, []).append((v, n))
-        cat = lambda attr: np.concatenate([getattr(p, attr) for p in parts])
+
+        def cat(attr):
+            return np.concatenate([getattr(p, attr) for p in parts])
+
         counts = {k: np.concatenate([p.counts[k] for p in parts]) for k in COUNT_KEYS}
         derived_means = {k: sum(v * n for v, n in lst) / n_total for k, lst in derived_acc.items()}
+        rows = [r for p in parts for r in p.rows]
+        events = pd.concat(rows, ignore_index=True) if st.record_events and rows else None
         lost = cat("lost")
-        events = pd.concat([r for p in parts for r in p.rows], ignore_index=True) if st.record_events and any(p.rows for p in parts) else None
-        pf = cat("pf")
+        q = self.q_total * cat("pf")
         return SimulationResult(
             loss_by_source=cat("by_source"),
             loss_by_component=cat("by_comp"),
             lost_bbl=lost,
-            downtime_days=lost / (self.q_total * pf),
+            downtime_days=np.divide(lost, q, out=np.zeros_like(lost), where=q > 0),
             max_event_loss=cat("max_event"),
             env_proxy_bbl=cat("spill"),
             counts=counts,
             derived_means=derived_means,
             settings=st,
+            platforms=tuple(self.asset.codes),
+            producers=tuple(c for c, m in zip(self.asset.codes, self.asset.producer_mask) if m),
             mitigations=self.mitigations,
             scenario=self.scenario.name,
             events=events,
@@ -230,17 +277,17 @@ class Simulator:
 
     def _run_chunk(self, st: SimulationSettings, chunk: int, n: int, theta_given, offset: int):
         cfg, reg = self.cfg, self.cfg.registry
-        rng = lambda name: self._rng(st.seed, chunk, name)
+
+        def rng(name: str) -> np.random.Generator:
+            return self._rng(st.seed, chunk, name)
 
         # 1. epistemic parameters
         if theta_given is not None:
             theta = theta_given
         elif st.epistemic == "pooled":
             theta = reg.sample(rng("epistemic").random((n, len(reg))))
-        elif st.epistemic == "median":
-            theta = reg.at_quantile(n, 0.5)
         else:
-            raise ValueError(f"unknown epistemic mode {st.epistemic!r}")
+            theta = reg.at_quantile(n, 0.5)
 
         # 2. mitigations and scenario overrides
         th_mod, arch, _ = apply_mitigations(theta, self.mitigations, cfg.mitigations, rng)
@@ -252,36 +299,37 @@ class Simulator:
         # 3. year-level drivers and price
         drv = sample_drivers(n, rng("drivers"), cfg.drivers, st.dependence)
         fdrv = cfg.drivers["frequency_driver"]
-        L = drv["logistics"] * self.scenario.logistics_multiplier
         price = self._price_dist.ppf(rng("price").random(n))
         if self.scenario.price_override is not None:
             price = np.full(n, float(self.scenario.price_override))
-
         ctx = {
-            "theta": th_mod, "d": d, "L": L, "price": price,
-            "pf": th_mod["production_rate_factor"], "v": th_mod["bi_value_fraction"],
+            "theta": th_mod,
+            "d": d,
+            "L": drv["logistics"] * self.scenario.logistics_multiplier,
+            "price": price,
+            "pf": np.asarray(th_mod["production_rate_factor"], dtype=float),
+            "v": th_mod["bi_value_fraction"],
             "dt_med": self._outcome_table(th_mod, "downtime_days", n),
             "cs_days": self._outcome_table(th_mod, "complex_shutdown_days", n),
             "dmg_mean": self._outcome_table(th_mod, "damage_fraction", n),
             "er_cost": self._outcome_table(th_mod, "er_cost_usd", n),
         }
         acc = _Accumulator(n, st.include_env_cost, st.record_events)
-        acc.pf = np.asarray(th_mod["production_rate_factor"], dtype=float)
+        acc.pf = ctx["pf"]
 
-        # 4. event sources
-        # -- hydrocarbon releases (per platform rates, one stream)
+        # 4a. hydrocarbon releases: per-platform rates, one stream; platform chosen
+        #     in proportion to the candidate rates, then thinned per platform.
         r = rng("source:release")
         lam_c = np.maximum(d_ref.release_rate, d.release_rate)
         tot_c = lam_c.sum(axis=1)
-        counts = r.poisson(tot_c * drv[fdrv["release"]])
-        yr = np.repeat(np.arange(n), counts)
-        u = r.random((len(yr), 15))
+        yr = np.repeat(np.arange(n), r.poisson(tot_c * drv[fdrv["release"]]))
+        u = r.random((len(yr), 2 + self.n_release_u))
         cdf = np.cumsum(lam_c / np.where(tot_c > 0, tot_c, 1.0)[:, None], axis=1)
         plat = np.minimum((u[:, 0, None] > cdf[yr]).sum(axis=1), self.asset.n - 1)
         keep = u[:, 1] * lam_c[yr, plat] < d.release_rate[yr, plat]
         acc.add("release", yr[keep], self._release(ctx, yr[keep], plat[keep], u[keep, 2:]), offset)
 
-        # -- simple sources: (name, reference rate, actual rate, driver, handler)
+        # 4b. other sources: (name, reference rate, actual rate, handler)
         simple = [
             ("compressor", d_ref.compressor_rate, d.compressor_rate, self._compressor),
             ("power_loss", d_ref.power_loss_rate, d.power_loss_rate, self._power_loss),
@@ -290,20 +338,19 @@ class Simulator:
             ("weather", d_ref.weather_rate, d.weather_rate, self._weather),
             ("collision", d_ref.collision_rate, d.collision_rate, self._collision),
         ]
+        width = 1 + _SIMPLE_U + self.n_release_u  # collision may spawn a release
         for name, lam_ref, lam, handler in simple:
             r = rng(f"source:{name}")
             lc = np.maximum(lam_ref, lam)
-            counts = r.poisson(lc * drv[fdrv[name]])
-            yr = np.repeat(np.arange(n), counts)
-            u = r.random((len(yr), 18))
+            yr = np.repeat(np.arange(n), r.poisson(lc * drv[fdrv[name]]))
+            u = r.random((len(yr), width))
             keep = u[:, 0] * lc[yr] < lam[yr]
             acc.add(name, yr[keep], handler(ctx, yr[keep], u[keep, 1:]), offset)
 
-        # -- forced scenario events: one per simulated year
+        # 4c. forced scenario events: one per simulated year
         for i, fe in enumerate(self.scenario.forced_events):
-            r = rng(f"forced:{i}")
             yr = np.arange(n)
-            u = r.random((n, 18))
+            u = rng(f"forced:{i}").random((n, width))
             acc.add("scenario_event", yr, self._forced(ctx, yr, u, fe), offset)
 
         dm = {
@@ -316,24 +363,32 @@ class Simulator:
         return acc, dm
 
     # ------------------------------------------------------------ consequences
-    def _batch(self, n_ev: int) -> dict:
+    @staticmethod
+    def _batch(n_ev: int) -> dict:
         return {"comps": np.zeros((n_ev, len(COMPONENTS))), "lost": np.zeros(n_ev), "spill": np.zeros(n_ev), "flags": {}}
 
+    def _bi(self, ctx, yr, lost):
+        return self.fin.business_interruption(lost, ctx["price"][yr], ctx["v"][yr])
+
     def _release(self, ctx, yr, plat, u, size=None, gas=None, outcome=None, escalate_to=None) -> dict:
-        """Consequences of hydrocarbon releases. u has >= 13 columns."""
+        """Consequences of hydrocarbon releases.
+
+        Uniform columns: 0 size, 1 phase, 2 event-tree leaf, 3 delayed response,
+        4 own downtime, 5 neighbour downtime, 6 own damage, 7 neighbour damage,
+        8 emergency-response cost, 9 spill volume, 10.. escalation per neighbour slot.
+        """
         th, d = ctx["theta"], ctx["d"]
         E = len(yr)
         b = self._batch(E)
         if E == 0:
             return b
+        if u.shape[1] < self.n_release_u:
+            raise ValueError(f"_release needs {self.n_release_u} uniform columns, got {u.shape[1]}")
         if size is None:
             size = (u[:, 0, None] > np.cumsum(d.size_probs[yr], axis=1)).sum(axis=1).clip(0, 2)
         else:
             size = np.full(E, SIZES.index(size))
-        if gas is None:
-            gas = u[:, 1] < self.asset.gas_fraction[plat]
-        else:
-            gas = np.full(E, bool(gas))
+        gas = u[:, 1] < self.asset.gas_fraction[plat] if gas is None else np.full(E, bool(gas))
         params = {
             "p_detect": d.p_detect[yr, size],
             "p_isolate": d.p_isolate[yr],
@@ -346,30 +401,28 @@ class Simulator:
         out = RELEASE_TREE.leaf_outcome_index(leaf)
         isolated = _ISOLATED_LEAF[leaf]
         if outcome is not None:
-            out = np.full(E, O[outcome])
-            isolated = np.isin(out, [O["controlled_release"], O["minor_fire"]])
+            out = np.full(E, OUTCOME_IDX[outcome])
+            isolated = np.isin(out, [OUTCOME_IDX["controlled_release"], OUTCOME_IDX["minor_fire"]])
 
         # escalation across bridges
         delayed = u[:, 3] < th["p_er_delayed"][yr]
         base = np.zeros(E)
-        base[out == O["major_fire"]] = th["esc_major_fire"][yr][out == O["major_fire"]]
-        base[out == O["explosion"]] = th["esc_explosion"][yr][out == O["explosion"]]
-        base[out == O["catastrophic"]] = th["esc_catastrophic"][yr][out == O["catastrophic"]]
+        for o, key in (("major_fire", "esc_major_fire"), ("explosion", "esc_explosion"), ("catastrophic", "esc_catastrophic")):
+            sel = out == OUTCOME_IDX[o]
+            base[sel] = th[key][yr][sel]
         p_esc = np.minimum(1.0, base * np.where(delayed, th["er_delay_escalation_multiplier"][yr], 1.0))
         nbm = self.nb[plat]
-        esc = (u[:, 4:7] < p_esc[:, None]) & (nbm >= 0)
+        esc = (u[:, 10 : 10 + self.k_nb] < p_esc[:, None]) & (nbm >= 0)
         if escalate_to:
-            forced_idx = [self.asset.index(c) for c in escalate_to]
-            esc = esc | np.isin(nbm, forced_idx)
+            esc = esc | np.isin(nbm, [self.asset.index(c) for c in escalate_to])
 
-        # downtime by platform
-        sig, cap = float(self.al["downtime_sigma"]), float(self.al["max_event_downtime_days"])
+        # downtime by platform (own, escalated neighbours, complex-wide shutdown)
         L = ctx["L"][yr]
         D = np.zeros((E, self.asset.n))
-        dt_own = np.minimum(_ln(ctx["dt_med"][yr, out], sig, u[:, 7]) * L, cap)
+        dt_own = self._dt(ctx["dt_med"][yr, out], u[:, 4], L)
         D[np.arange(E), plat] = dt_own
-        dt_nb = np.minimum(_ln(th["dt_escalated_days"][yr], sig, u[:, 8]) * L, cap)
-        for j in range(nbm.shape[1]):
+        dt_nb = self._dt(th["dt_escalated_days"][yr], u[:, 5], L)
+        for j in range(self.k_nb):
             sel = esc[:, j]
             D[sel, nbm[sel, j]] = np.maximum(D[sel, nbm[sel, j]], dt_nb[sel])
         D = np.maximum(D, ctx["cs_days"][yr, out][:, None])
@@ -379,23 +432,23 @@ class Simulator:
         conc = float(self.al["damage_beta_concentration"])
         rv = self.asset.replacement_value
         mean = ctx["dmg_mean"][yr, out]
-        frac = np.where(mean > 0, beta_from_mean(np.maximum(mean, 1e-9), conc, u[:, 9]), 0.0)
+        frac = np.where(mean > 0, beta_from_mean(np.maximum(mean, 1e-9), conc, u[:, 6]), 0.0)
         prop = frac * rv[plat]
-        frac_nb = beta_from_mean(float(self.al["escalated_damage_fraction"]), conc, u[:, 10])
-        for j in range(nbm.shape[1]):
+        frac_nb = beta_from_mean(float(self.al["escalated_damage_fraction"]), conc, u[:, 7])
+        for j in range(self.k_nb):
             prop += esc[:, j] * frac_nb * rv[np.maximum(nbm[:, j], 0)]
-        evac = (out == O["catastrophic"]) | (esc & (nbm == self.lq)).any(axis=1)
-        er = ctx["er_cost"][yr, out] * _ln(1.0, float(self.al["cost_sigma"]), u[:, 11]) + evac * self.fin.evacuation_cost
-        repair_days = np.where(out >= O["minor_fire"], dt_own, 0.0) + (esc * dt_nb[:, None]).sum(axis=1)
+        evac = (out == OUTCOME_IDX["catastrophic"]) | (esc & (nbm == self.lq)).any(axis=1)
+        er = ctx["er_cost"][yr, out] * _ln(1.0, self.cost_sigma, u[:, 8]) + evac * self.fin.evacuation_cost
+        repair_days = np.where(out >= OUTCOME_IDX["minor_fire"], dt_own, 0.0) + (esc * dt_nb[:, None]).sum(axis=1)
         cm = b["comps"]
         cm[:, C["property_damage"]] = prop
         cm[:, C["emergency_response"]] = er
         cm[:, C["logistics"]] = self.fin.logistics_day_rate * repair_days
-        cm[:, C["restart"]] = self.fin.restart_cost * (D > 0).sum(axis=1)
-        cm[:, C["business_interruption"]] = self.fin.business_interruption(lost, ctx["price"][yr], ctx["v"][yr])
+        cm[:, C["restart"]] = self.fin.restart_cost * ((D > 0) & self.process).sum(axis=1)
+        cm[:, C["business_interruption"]] = self._bi(ctx, yr, lost)
         med_spill = np.array([self.al["liquid_spill_bbl_median"][s] for s in SIZES])[size]
         mult = np.where(isolated, 1.0, float(self.al["liquid_spill_unisolated_multiplier"]))
-        spill = np.where(gas, 0.0, _ln(med_spill * mult, sig, u[:, 12]))
+        spill = np.where(gas, 0.0, _ln(med_spill * mult, self.sigma, u[:, 9]))
         cm[:, C["environmental_scenario"]] = spill * self.fin.env_cost_per_bbl
         b.update(
             lost=lost,
@@ -405,9 +458,9 @@ class Simulator:
             downtime=dt_own,
             flags={
                 "releases": np.ones(E, dtype=bool),
-                "fires": out >= O["minor_fire"],
-                "explosions": np.isin(out, [O["explosion"], O["catastrophic"]]),
-                "catastrophic": out == O["catastrophic"],
+                "fires": out >= OUTCOME_IDX["minor_fire"],
+                "explosions": np.isin(out, [OUTCOME_IDX["explosion"], OUTCOME_IDX["catastrophic"]]),
+                "catastrophic": out == OUTCOME_IDX["catastrophic"],
                 "escalations": esc.any(axis=1),
                 "evacuations": evac,
             },
@@ -416,18 +469,17 @@ class Simulator:
 
     def _whole_complex_outage(self, ctx, yr, days, b):
         b["lost"] = days * self.q_total * ctx["pf"][yr]
-        b["comps"][:, C["business_interruption"]] = self.fin.business_interruption(b["lost"], ctx["price"][yr], ctx["v"][yr])
+        b["comps"][:, C["business_interruption"]] = self._bi(ctx, yr, b["lost"])
         b["downtime"] = days
         return b
 
     def _compressor(self, ctx, yr, u, **_):
         th = ctx["theta"]
         b = self._batch(len(yr))
-        sig = float(self.al["downtime_sigma"])
-        dt = _ln(th["comp_repair_days"][yr], sig, u[:, 0]) * ctx["L"][yr]
+        dt = self._dt(th["comp_repair_days"][yr], u[:, 0], ctx["L"][yr])
         b["lost"] = th["comp_production_impact"][yr] * dt * self.q_total * ctx["pf"][yr]
-        b["comps"][:, C["business_interruption"]] = self.fin.business_interruption(b["lost"], ctx["price"][yr], ctx["v"][yr])
-        b["comps"][:, C["equipment_repair"]] = _ln(float(self.al["compressor_repair_cost_usd_median"]), float(self.al["cost_sigma"]), u[:, 1])
+        b["comps"][:, C["business_interruption"]] = self._bi(ctx, yr, b["lost"])
+        b["comps"][:, C["equipment_repair"]] = _ln(float(self.al["compressor_repair_cost_usd_median"]), self.cost_sigma, u[:, 1])
         b.update(downtime=dt, platform=np.full(len(yr), "UCP"), detail=np.full(len(yr), "compressor_train_failure"))
         return b
 
@@ -435,36 +487,34 @@ class Simulator:
         th = ctx["theta"]
         b = self._batch(len(yr))
         med = th["power_restart_days"][yr] if restart_days_median is None else float(restart_days_median)
-        dt = _ln(med, float(self.al["downtime_sigma"]), u[:, 0]) * ctx["L"][yr]
-        self._whole_complex_outage(ctx, yr, dt, b)
-        b["comps"][:, C["restart"]] = 4 * self.fin.restart_cost
-        b["comps"][:, C["equipment_repair"]] = _ln(2.0e5, float(self.al["cost_sigma"]), u[:, 1])
+        self._whole_complex_outage(ctx, yr, self._dt(med, u[:, 0], ctx["L"][yr]), b)
+        b["comps"][:, C["restart"]] = self.n_process * self.fin.restart_cost
+        b["comps"][:, C["equipment_repair"]] = _ln(float(self.al["power_loss_repair_cost_usd_median"]), self.cost_sigma, u[:, 1])
         b.update(platform=np.full(len(yr), "UCP"), detail=np.full(len(yr), "total_power_loss"))
         return b
 
     def _pipeline(self, ctx, yr, u, **_):
         th = ctx["theta"]
         b = self._batch(len(yr))
-        sig = float(self.al["downtime_sigma"])
-        dt = np.minimum(_ln(th["pipeline_repair_days"][yr], sig, u[:, 0]) * ctx["L"][yr], float(self.al["max_event_downtime_days"]))
+        dt = self._dt(th["pipeline_repair_days"][yr], u[:, 0], ctx["L"][yr])
         self._whole_complex_outage(ctx, yr, dt, b)
-        b["comps"][:, C["equipment_repair"]] = _ln(th["pipeline_repair_cost_usd"][yr], float(self.al["cost_sigma"]), u[:, 1])
+        b["comps"][:, C["equipment_repair"]] = _ln(th["pipeline_repair_cost_usd"][yr], self.cost_sigma, u[:, 1])
         b["comps"][:, C["logistics"]] = self.fin.logistics_day_rate * dt
-        b["comps"][:, C["restart"]] = 2 * self.fin.restart_cost
-        b["spill"] = _ln(float(self.al["pipeline_spill_bbl_median"]), sig, u[:, 2])
+        b["comps"][:, C["restart"]] = self.n_producers * self.fin.restart_cost
+        b["spill"] = _ln(float(self.al["pipeline_spill_bbl_median"]), self.sigma, u[:, 2])
         b["comps"][:, C["environmental_scenario"]] = b["spill"] * self.fin.env_cost_per_bbl
         b.update(platform=np.full(len(yr), "export"), detail=np.full(len(yr), "pipeline_loss_of_containment"))
         return b
 
     def _trip(self, ctx, yr, u, **_):
-        b = self._batch(len(yr))
         E = len(yr)
+        b = self._batch(E)
         p = self.trip_idx[np.minimum((u[:, 0] * len(self.trip_idx)).astype(int), len(self.trip_idx) - 1)]
-        dt = _ln(float(self.al["trip_downtime_hours_median"]) / 24.0, float(self.al["downtime_sigma"]), u[:, 1])
+        dt = self._dt(float(self.al["trip_downtime_hours_median"]) / 24.0, u[:, 1])  # restart is on site: no logistics factor
         D = np.zeros((E, self.asset.n))
         D[np.arange(E), p] = dt
         b["lost"] = lost_production_bbl(D, self.cap_table) * ctx["pf"][yr]
-        b["comps"][:, C["business_interruption"]] = self.fin.business_interruption(b["lost"], ctx["price"][yr], ctx["v"][yr])
+        b["comps"][:, C["business_interruption"]] = self._bi(ctx, yr, b["lost"])
         b["comps"][:, C["restart"]] = self.fin.restart_cost
         b.update(downtime=dt, platform=np.array(self.asset.codes)[p], detail=np.full(E, "spurious_trip"))
         return b
@@ -473,12 +523,11 @@ class Simulator:
         th = ctx["theta"]
         b = self._batch(len(yr))
         med = float(self.al["weather_shutin_days_median"]) if shutin_days_median is None else float(shutin_days_median)
-        dt = _ln(med, float(self.al["downtime_sigma"]), u[:, 0]) * ctx["L"][yr]
-        self._whole_complex_outage(ctx, yr, dt, b)
+        self._whole_complex_outage(ctx, yr, self._dt(med, u[:, 0], ctx["L"][yr]), b)
         dmg = (u[:, 1] < th["weather_damage_prob"][yr]) if damage else np.zeros(len(yr), dtype=bool)
-        b["comps"][:, C["property_damage"]] = dmg * _ln(float(self.al["weather_damage_usd_median"]), float(self.al["cost_sigma"]), u[:, 2])
+        b["comps"][:, C["property_damage"]] = dmg * _ln(float(self.al["weather_damage_usd_median"]), self.cost_sigma, u[:, 2])
         b["comps"][:, C["emergency_response"]] = self.fin.weather_demanning_cost
-        b["comps"][:, C["restart"]] = 4 * self.fin.restart_cost
+        b["comps"][:, C["restart"]] = self.n_process * self.fin.restart_cost
         b.update(platform=np.full(len(yr), "complex"), detail=np.where(dmg, "shut_in_with_damage", "precautionary_shut_in"))
         return b
 
@@ -489,47 +538,57 @@ class Simulator:
         if E == 0:
             return b
         tgt = self.coll_idx[np.minimum((u[:, 0, None] > self.coll_cdf).sum(axis=1), len(self.coll_idx) - 1)]
-        sig = float(self.al["downtime_sigma"])
-        dt = _ln(float(self.al["collision_downtime_days_median"]), sig, u[:, 1]) * ctx["L"][yr]
+        dt = self._dt(float(self.al["collision_downtime_days_median"]), u[:, 1], ctx["L"][yr])
         D = np.zeros((E, self.asset.n))
         D[np.arange(E), tgt] = dt
         b["lost"] = lost_production_bbl(D, self.cap_table) * ctx["pf"][yr]
-        b["comps"][:, C["business_interruption"]] = self.fin.business_interruption(b["lost"], ctx["price"][yr], ctx["v"][yr])
-        b["comps"][:, C["property_damage"]] = _ln(float(self.al["collision_damage_usd_median"]), float(self.al["cost_sigma"]), u[:, 2])
+        b["comps"][:, C["business_interruption"]] = self._bi(ctx, yr, b["lost"])
+        b["comps"][:, C["property_damage"]] = _ln(float(self.al["collision_damage_usd_median"]), self.cost_sigma, u[:, 2])
         b["comps"][:, C["logistics"]] = self.fin.logistics_day_rate * dt
-        b["comps"][:, C["restart"]] = self.fin.restart_cost
-        b.update(downtime=dt, platform=np.array(self.asset.codes)[tgt], detail=np.full(E, "vessel_impact"))
+        b["comps"][:, C["restart"]] = self.fin.restart_cost * self.process[tgt]
+        b.update(downtime=dt, platform=np.array(self.asset.codes)[tgt], detail=np.full(E, "vessel_impact").astype(object))
         # riser rupture -> large release on the struck platform (if it holds hydrocarbons)
-        rup = (u[:, 3] < th["p_riser_rupture_given_collision"][yr]) & (self.asset.release_factor[tgt] > 0)
+        rup = (u[:, 3] < th["p_riser_rupture_given_collision"][yr]) & self.process[tgt]
         if rup.any():
-            rb = self._release(ctx, yr[rup], tgt[rup], u[rup, 4:], size="large")
+            rb = self._release(ctx, yr[rup], tgt[rup], u[rup, _SIMPLE_U:], size="large")
             for k in ("comps", "lost", "spill"):
                 b[k][rup] = b[k][rup] + rb[k]
             b["flags"] = {k: np.zeros(E, dtype=bool) for k in rb["flags"]}
             for k, v in rb["flags"].items():
                 b["flags"][k][rup] = v
-            det = b["detail"].astype(object)
-            det[rup] = "vessel_impact+riser_release:" + rb["detail"].astype(object)
-            b["detail"] = det
+            b["detail"][rup] = "vessel_impact+riser_release:" + rb["detail"].astype(object)
         return b
 
     def _forced(self, ctx, yr, u, fe: dict) -> dict:
         kind = fe["type"]
         if kind == "release":
             plat = np.full(len(yr), self.asset.index(fe["platform"]))
+            phase = fe.get("phase")
             return self._release(
-                ctx, yr, plat, u, size=fe.get("size"),
-                gas=None if fe.get("phase") is None else fe["phase"] == "gas",
+                ctx, yr, plat, u, size=fe.get("size"), gas=None if phase is None else phase == "gas",
                 outcome=fe.get("outcome"), escalate_to=fe.get("escalate_to"),
-            )
-        handlers = {"compressor": self._compressor, "power_loss": self._power_loss, "pipeline": self._pipeline,
-                    "weather": self._weather, "spurious_trip": self._trip, "collision": self._collision}
+            )  # fmt: skip
+        handlers = {
+            "compressor": self._compressor,
+            "power_loss": self._power_loss,
+            "pipeline": self._pipeline,
+            "weather": self._weather,
+            "spurious_trip": self._trip,
+            "collision": self._collision,
+        }
         extra = {k: v for k, v in fe.items() if k != "type"}
         return handlers[kind](ctx, yr, u, **extra)
 
 
-def simulate(cfg: ModelConfig, n_years: int = 20_000, seed: int = 20260927, dependence: str = "correlated",
-             mitigations: Iterable[str] = (), scenario: ScenarioSpec | None = None, **kw) -> SimulationResult:
-    """Convenience wrapper."""
+def simulate(
+    cfg: ModelConfig,
+    n_years: int = 20_000,
+    seed: int = 20260927,
+    dependence: str = "correlated",
+    mitigations: Iterable[str] = (),
+    scenario: ScenarioSpec | None = None,
+    **kw,
+) -> SimulationResult:
+    """Convenience wrapper: build a :class:`Simulator` and run it."""
     st = SimulationSettings(n_years=n_years, seed=seed, dependence=dependence, **kw)
     return Simulator(cfg, mitigations, scenario).run(st)

@@ -31,50 +31,57 @@ facility.
    into the explosion branch.
 7. **Escalation** is first-order across bridges only, with fixed probabilities
    per outcome class; there is no time-to-failure model for structures.
-8. **Foam systems, helicopter operations, dropped objects, well control
+8. **Some physical dependencies are not modelled**: a fire or escalation on
+    SWI does not disable the diesel firewater pump located there, simultaneous
+    failure of both compressor trains is not represented, and all process
+    platforms share the same detection, ESD and deluge parameters.
+9. **Foam systems, helicopter operations, dropped objects, well control
    (blowout) and subsea equipment are not modelled.** A blowout is a major
    omission for a real wellhead platform; it is left out because a credible
    frequency/consequence model needs well-specific data.
 
 ## Reliability modelling
 
-9. **Simplified PFD formulas**: perfect proof tests, no repair time, no
+10. **Simplified PFD formulas**: perfect proof tests, no repair time, no
    diagnostic coverage, no partial-stroke testing. Adequate for comparing
    architectures; not for SIL verification.
-10. **β-factor CCF** is the simplest CCF model; an alpha-factor or multiple
+11. **β-factor CCF** is the simplest CCF model; an alpha-factor or multiple
     Greek letter model would treat higher-order common causes better.
-11. **Repairable-system frequency** for generators uses the rare-event
+12. **Repairable-system frequency** for generators uses the rare-event
     approximation (λ·MTTR ≪ 1); validated by discrete-event simulation for one
     case only.
 
 ## Statistical modelling
 
-12. **Dependence** is a Gaussian copula on three year-level drivers. It has no
+13. **Dependence** is a Gaussian copula on three year-level drivers. It has no
     tail dependence, and the correlation values are assumptions. Dependence
     between specific events within a year (e.g. a storm causing a collision)
     is represented only through the shared driver.
-13. **Occurrence basis**: all consequences of an event are booked in the year
+14. **Occurrence basis**: all consequences of an event are booked in the year
     it happens, even if the outage continues into the next year; overlapping
     outages are added rather than merged.
-14. **Tail estimates** (P99.5+, ES99) rest on a few hundred simulated tail
+15. **Tail estimates** (P99.5+, ES99) rest on a few hundred simulated tail
     years and on consequence distributions that are themselves assumptions.
     Convergence tests show the Monte Carlo error; they cannot show model error.
-15. **Sensitivity**: the tornado is local (others at medians); the first-order
+16. **Sensitivity**: the tornado is local (others at medians); the first-order
     index is a binned given-data estimator, not a full Sobol' design, and is
-    biased low by inner-loop noise. Interactions are not quantified.
-16. **Optimisation** uses pairwise interaction terms only. Validation shows the
+    biased low by inner-loop noise. Interactions are not quantified. With 400
+    outer worlds the sampling error of a rank correlation is about ±0.05, so
+    only the separation of the top parameter is robust; the order of the
+    second-order drivers can change with the seed.
+17. **Optimisation** uses pairwise interaction terms only. Validation shows the
     MILP matches exhaustive search here, but that is not guaranteed for other
     portfolios where three or more controls act on the same mechanism.
-17. **Bayesian updating** uses conjugate models with pooled, exchangeable
+18. **Bayesian updating** uses conjugate models with pooled, exchangeable
     equipment. Real data would call for hierarchical models across similar
     equipment and for handling test-coverage (a start test is not a full
     functional demand).
 
 ## Economics
 
-18. **Business interruption** uses a single value fraction per world for all
+19. **Business interruption** uses a single value fraction per world for all
     deferred barrels. Real deferred-production economics depend on reservoir
     management, contracts (take-or-pay, gas sales) and the timing of recovery.
     This is also the most influential assumption, so it is the first thing to
     replace with real data.
-19. Oil price is one annual average, independent of operational risk.
+20. Oil price is one annual average, independent of operational risk.

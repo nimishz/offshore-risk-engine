@@ -5,25 +5,26 @@ probability is looked up by key in a parameter mapping) and string leaves
 (outcome labels). Because probabilities may be numpy arrays, one call
 evaluates the tree for every simulated event at once.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Callable, Mapping, Union
 
 import numpy as np
 
-Prob = Union[str, float, Callable[[Mapping], np.ndarray]]
+Prob = str | float | Callable[[Mapping], np.ndarray]
 
 
 @dataclass(frozen=True)
 class Split:
     question: str
     p_yes: Prob
-    yes: "Node"
-    no: "Node"
+    yes: Node
+    no: Node
 
 
-Node = Union[Split, str]
+Node = Split | str
 
 
 @dataclass(frozen=True)

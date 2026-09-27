@@ -3,22 +3,22 @@ FIRE_PROTECTION_FAIL [OR]
 │   ├── HEADER_FAIL
 │   └── NO_FIREWATER_PUMP [AND]
 │       ├── ALL_ELECTRIC_PUMPS_FAIL [AND]
-│       │   ├── EPUMP_A_UNAVAILABLE [OR]
-│       │   │   ├── EPUMP_A_FTS
-│       │   │   ├── EPUMP_A_MAINT
-│       │   │   ├── EPUMP_A_FTR
+│       │   ├── EPUMP_1_UNAVAILABLE [OR]
+│       │   │   ├── EPUMP_1_FTS
+│       │   │   ├── EPUMP_1_MAINT
+│       │   │   ├── EPUMP_1_FTR
 │       │   │   ├── POWER_LOSS  (repeated)
 │       │   │   └── CCF_ELEC_PUMPS  (repeated)
-│       │   └── EPUMP_B_UNAVAILABLE [OR]
-│       │       ├── EPUMP_B_FTS
-│       │       ├── EPUMP_B_MAINT
-│       │       ├── EPUMP_B_FTR
+│       │   └── EPUMP_2_UNAVAILABLE [OR]
+│       │       ├── EPUMP_2_FTS
+│       │       ├── EPUMP_2_MAINT
+│       │       ├── EPUMP_2_FTR
 │       │       ├── POWER_LOSS  (repeated)
 │       │       └── CCF_ELEC_PUMPS  (repeated)
-│       └── DPUMP_C_UNAVAILABLE [OR]
-│           ├── DPUMP_C_FTS
-│           ├── DPUMP_C_MAINT
-│           └── DPUMP_C_FTR
+│       └── DPUMP_1_UNAVAILABLE [OR]
+│           ├── DPUMP_1_FTS
+│           ├── DPUMP_1_MAINT
+│           └── DPUMP_1_FTR
 ├── DELUGE_VALVE_FAIL
 └── NO_DELUGE_ACTIVATION [AND]
     ├── FIRE_DETECTION_FAIL

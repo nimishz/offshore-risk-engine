@@ -1,0 +1,137 @@
+# Research notes
+
+A log of modelling decisions, the reasoning behind them, and things tried and
+rejected. It is kept separate from the methodology so the methodology can stay
+declarative. Numbers are generated from `outputs/results/`.
+
+## Decisions
+
+**Why a frequency–severity simulation and not a single deterministic loss?**
+Operational loss is dominated by rare, large events. A single "expected" number
+hides two facts: the median year is about {{median_share}} of the expected year, and
+the worst 1 % of years carry {{top1_share}} of all loss. The annual loss distribution
+is what appetite and capital questions need.
+
+**Why build release frequency from causes?** Controls then act on the mechanism
+they address: inspection reduces corrosion releases, and permit-to-work
+competence reduces maintenance-induced releases. A single total release rate
+cannot represent either control.
+
+**Why fault trees only for the protection layers?** That is where architecture
+(redundancy, shared support systems, common cause) changes the answer. The
+release-frequency "tree" is a sum of rates plus two AND gates. It is written
+directly in `simulation/derived.py` rather than forced into a probability fault
+tree.
+
+**Why Shannon decomposition instead of BDDs?** The fire-protection trees here
+have two or three repeated events (main power and the common-cause events), so
+2^r gate evaluations is exact, simple, and vectorises over thousands of
+parameter draws. A BDD would be the right tool for trees with many repeated
+events.
+
+**Why thinning for common random numbers?** Mitigations change rates. If each
+run drew Poisson counts independently, the difference between baseline and
+mitigated EAL would be dominated by noise for small effects. Instead, candidate
+events are drawn at the reference rate and each is accepted with probability
+(actual rate / reference rate). A frequency-reducing control then only ever
+*removes* events; the tests confirm that no simulated year gets worse. At
+{{n_mitigations}} years the paired standard errors of the EAL reductions are
+{{se_min}}–{{se_max}} M, against ≈ {{se_indep}} M for the difference of two
+independent runs.
+
+**Why severity-ordered event-tree leaves?** Same reason: with outcomes sorted
+by severity, improving a barrier moves the same random number to an equal or
+less severe outcome.
+
+**Why two dependence models?** The question an ERM function asks is "how much
+does co-movement between risks change the tail?" Answering it requires holding
+marginals fixed and changing only dependence. Correlated year-level drivers
+change P95 by {{dep_p95}} but ES99 by only {{dep_es99}}, because the extreme tail is
+made of single catastrophic events, not accumulations. Even a much stronger
+correlation stress moves ES99 by only {{strong_es99}}.
+
+**Why is EAL slightly higher under Model B?** This is not a bug. The integrity
+driver scales frequencies and the logistics driver scales durations; when they
+are positively correlated, E[frequency × duration] exceeds the product of the
+means. The validation run shows event frequencies are unchanged.
+
+**Why nested (two-loop) simulation?** A pooled run answers "what is the
+predictive distribution?" It cannot say how confident we are in the EAL or
+P99. The nested run shows the EAL of a "world" ranges over {{nested_eal_range}} M
+(5–95 %) purely from parameter uncertainty. That is a statement about
+knowledge, and it is why the sensitivity analysis is a headline output.
+
+**Why validate the configuration and generate the documentation?** A risk
+model is only as trustworthy as its inputs and its reporting. A typo in a
+parameter name or a probability above one should stop the run with a clear
+message, not produce a plausible-looking number. Quoted results should be
+impossible to leave stale after a model change. `config_validation.py` and
+`scripts/render_docs.py` enforce both. The renderer also refuses to write the
+README if a qualitative claim in it (for example "the tail is dominated by
+releases and the pipeline") no longer holds.
+
+## Findings worth recording
+
+* The most influential assumption is economic (`{{top_param}}`), not
+  engineering. Before refining ignition probabilities, an operator should pin
+  down what a deferred barrel is worth.
+* The ranking below the top parameter is not robust. Several parameters have
+  rank correlations within one sampling standard error (≈ ±{{rho_se}}) of each
+  other, so they should be read as a group of second-order drivers, not as an
+  ordered list.
+* Frequent, small events (trips, compressor failures, weather shut-ins, power
+  losses) make up {{frequent_share_eal}} of the EAL but {{frequent_share_es99}} of ES99.
+  Releases and the export pipeline make up {{major_share_es99}} of ES99.
+* Improving gas-detection coverage is the most cost-effective control and the
+  largest tail reducer. Undetected releases become unisolated releases, which
+  cause complex-wide shutdowns even when they do not ignite.
+* Adding a firewater pump or deluge coverage reduces the fire-protection PFD
+  ({{fp_pfd_base}} → {{fp_pfd_pump}} / {{fp_pfd_deluge}}) but barely changes the EAL, because fires
+  are rare (~{{fires_per_year}} /yr). Their value lies in safety and tail severity, which a
+  pure EAL cost-benefit undervalues. The optimiser's choice changes with the objective.
+* A fourth generator removes most of the independent loss-of-power frequency
+  but leaves the common-cause term ({{power_ccf_share}} of the total at median
+  parameters), so its benefit–cost ratio is poor.
+
+## Corrections made during review
+
+* The fire-protection fault tree originally lettered electric pumps A, B… and
+  started diesel pumps at C. With three electric pumps two different pumps would
+  have shared a name and been merged. Basic events are now numbered within
+  each pump group, and tests cover several architectures.
+* Diesel pumps originally reused the electric pumps' β-factor; they now have
+  their own parameter (`fw_diesel_ccf_beta`).
+* Flame-detection voting was hard-coded as 2oo3; it is now read from the asset
+  configuration.
+* Restart costs were charged to the living quarters and water-injection
+  platforms during complex shutdowns; they now apply only to platforms with
+  process inventory.
+* Only fire and explosion outages were capped at the maximum event duration;
+  every outage is now capped.
+* Escalation assumed at most three bridge neighbours; it now adapts to the layout.
+* Platform indices were hard-coded in the appetite, mitigation and scenario
+  code; they now use platform codes.
+* The plotting module forced a non-interactive matplotlib backend, which
+  stopped figures rendering in notebooks.
+
+## Tried and rejected
+
+* **Independent Poisson draws per mitigation run**: too noisy (see above).
+* **A single correlation between annual losses by source**: it cannot keep
+  event frequencies fixed while changing dependence, and it has no mechanism.
+* **Machine learning for any component**: there is no problem here that it
+  solves better than the explicit models, so it is not used.
+
+## Further reading (general texts on the methods)
+
+* Rausand, M. & Høyland, A. *System Reliability Theory: Models, Statistical Methods, and Applications*.
+* Vesely, W. E. et al. *Fault Tree Handbook* (NUREG-0492), U.S. NRC.
+* Mosleh, A. et al. *Guidelines on Modeling Common-Cause Failures in Probabilistic Risk Assessment* (NUREG/CR-5485), U.S. NRC.
+* IEC 61508-6, Annex B (simplified PFD equations) and Annex D (β-factor estimation).
+* Aven, T. *Quantitative Risk Assessment: The Scientific Platform*.
+* McNeil, A., Frey, R. & Embrechts, P. *Quantitative Risk Management*.
+* Saltelli, A. et al. *Global Sensitivity Analysis: The Primer*.
+* Vose, D. *Risk Analysis: A Quantitative Guide*.
+
+These are cited for methods only; no parameter value in this repository is
+taken from them.

@@ -10,6 +10,7 @@ Two data types appear in reliability work and each has a natural conjugate model
 Generic priors are usually quoted as a median with an error factor. They are
 converted to conjugate priors by moment matching (``gamma_from_lognormal``).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,10 +28,10 @@ class BetaModel:
     b: float
 
     @classmethod
-    def from_mean(cls, mean: float, n: float) -> "BetaModel":
+    def from_mean(cls, mean: float, n: float) -> BetaModel:
         return cls(mean * n, (1 - mean) * n)
 
-    def update(self, failures: int, demands: int) -> "BetaModel":
+    def update(self, failures: int, demands: int) -> BetaModel:
         if failures > demands or failures < 0:
             raise ValueError("need 0 <= failures <= demands")
         return BetaModel(self.a + failures, self.b + demands - failures)
@@ -63,7 +64,7 @@ class GammaModel:
     shape: float
     rate: float  # in exposure units (e.g. years)
 
-    def update(self, events: int, exposure: float) -> "GammaModel":
+    def update(self, events: int, exposure: float) -> GammaModel:
         if events < 0 or exposure < 0:
             raise ValueError("events and exposure must be non-negative")
         return GammaModel(self.shape + events, self.rate + exposure)

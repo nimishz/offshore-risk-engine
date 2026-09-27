@@ -229,6 +229,13 @@ epistemic:
     distribution: {type: triangular, low: 0.05, mode: 0.10, high: 0.20}
     basis: engineering_convention
     rationale: Same room, same switchboard, same maintenance -> high beta.
+  fw_diesel_ccf_beta:
+    definition: Beta-factor for common-cause failure to start of diesel firewater pumps (only used with two or more diesel pumps)
+    unit: fraction
+    category: fire_protection/firewater
+    distribution: {type: triangular, low: 0.05, mode: 0.10, high: 0.20}
+    basis: engineering_convention
+    rationale: Identical diesel drivers share fuel, starting system design and maintenance; same range as the electric pumps.
   fw_header_fail:
     definition: Probability the firewater ring main/header cannot deliver (impaired section, blockage, closed isolation valve)
     unit: probability per demand
@@ -244,7 +251,10 @@ epistemic:
     category: process_safety/ignition
     distribution: {type: triangular, low: 0.005, mode: 0.01, high: 0.02}
     basis: order_of_magnitude
-    rationale: Ignition probability rises with release rate; published ignition models (e.g. IOGP RADD ignition data) give values of order 1 % for small and 10 %+ for large releases.
+    rationale: >-
+      Published ignition-probability correlations (e.g. in the IOGP Risk Assessment Data Directory) increase with
+      release rate, from around or below 1 % for small releases to of order 10 % or more for large ones. The values
+      used here are assumptions placed within that pattern.
   p_ign_medium:
     definition: Ignition probability of a medium, unisolated release
     unit: probability
@@ -345,7 +355,7 @@ epistemic:
     unit: years
     category: mechanical/compressor
     distribution: {type: triangular, low: 2.5, mode: 3.5, high: 5.0}
-    basis: synthetic_calibrated
+    basis: assumption
     rationale: Gives roughly 0.3-0.5 failures per train-year at mid-cycle.
   comp_age_years:
     definition: Age of compressor trains since last major overhaul at the start of the year
@@ -422,8 +432,8 @@ epistemic:
     unit: per complex-year
     category: mechanical/instrumentation
     distribution: {type: lognormal, median: 3.0, ef: 2}
-    basis: assumption
-    rationale: Several unplanned trips per year across the complex is typical of mature assets (judgement).
+    basis: synthetic_calibrated
+    rationale: Several unplanned trips per year across the complex (judgement). Generic prior, optionally replaced by the Gamma posterior from the synthetic trip records.
 
   # ------------------------------------------------------------------- external
   weather_rate:
@@ -555,6 +565,7 @@ aleatory:
   collision_targets: {WHP: 0.4, PPA: 0.2, PPB: 0.2, SWI: 0.2}
   pipeline_spill_bbl_median: 200.0
   cost_sigma: 0.8                # lognormal log-sd for per-event repair/damage costs given as medians
+  power_loss_repair_cost_usd_median: 2.0e+5   # generator / switchboard repair after a total power loss
 
 # Year-level drivers (aleatory). Lognormal marginals with mean 1.
 drivers:

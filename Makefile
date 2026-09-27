@@ -1,4 +1,4 @@
-.PHONY: install data analysis validate test notebooks dashboard all
+.PHONY: install data analysis validate docs test lint notebooks dashboard all
 
 install:
 	pip install -r requirements.txt && pip install -e .
@@ -6,6 +6,10 @@ install:
 data:
 	python scripts/generate_synthetic_data.py
 	python scripts/build_data_dictionary.py
+
+lint:
+	ruff check .
+	ruff format --check .
 
 test:
 	pytest
@@ -16,10 +20,13 @@ analysis:
 validate:
 	python scripts/run_validation.py
 
+docs:
+	python scripts/render_docs.py
+
 notebooks:
 	python scripts/build_notebooks.py
 
 dashboard:
 	streamlit run dashboard/app.py
 
-all: data test analysis validate notebooks
+all: data lint test analysis validate docs notebooks

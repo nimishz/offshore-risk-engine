@@ -4,9 +4,10 @@ Conventions: losses are positive numbers; VaR_a is the a-quantile of the
 annual loss (a loss level, not a deviation from the mean); ES_a (a.k.a. TVaR,
 CVaR) is the mean loss in years at or above VaR_a.
 """
+
 from __future__ import annotations
 
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -49,7 +50,10 @@ def exceedance_probability(losses, thresholds: Iterable[float]) -> dict[float, f
 
 def risk_metrics(losses) -> dict[str, float]:
     x = np.asarray(losses, dtype=float)
-    out = {"eal": float(x.mean()), "sd": float(x.std(ddof=1)), "se_eal": float(x.std(ddof=1) / np.sqrt(len(x)))}
+    if x.size == 0 or not np.isfinite(x).all():
+        raise ValueError("risk_metrics needs a non-empty sample of finite losses")
+    sd = float(x.std(ddof=1)) if x.size > 1 else float("nan")
+    out = {"eal": float(x.mean()), "sd": sd, "se_eal": sd / np.sqrt(x.size)}
     for p in PERCENTILES:
         key = "median" if p == 0.5 else f"p{int(round(p * 100))}"
         out[key] = var(x, p)
@@ -78,7 +82,9 @@ def exceedance_curve(losses, grid: np.ndarray | None = None, n_points: int = 200
         grid = np.geomspace(lo, max(x.max(), lo * 10), n_points)
     xs = np.sort(x)
     p = 1.0 - np.searchsorted(xs, grid, side="right") / len(xs)
-    return pd.DataFrame({"loss": grid, "exceedance_probability": p, "return_period_years": np.where(p > 0, 1 / np.maximum(p, 1e-300), np.inf)})
+    return pd.DataFrame(
+        {"loss": grid, "exceedance_probability": p, "return_period_years": np.where(p > 0, 1 / np.maximum(p, 1e-300), np.inf)}
+    )
 
 
 def tail_allocation(loss_by_source: np.ndarray, sources: list[str], alpha: float = 0.99) -> pd.DataFrame:

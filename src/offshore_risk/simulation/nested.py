@@ -5,10 +5,11 @@ Outer loop: N_out 'worlds', each a draw of the epistemic parameters theta
 fixed, so the spread inside a world is aleatory only. The spread of a metric
 (EAL, P95, ...) *across* worlds is our uncertainty about that metric.
 """
+
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -21,9 +22,9 @@ from .engine import ScenarioSpec, SimulationSettings, Simulator
 
 @dataclass
 class NestedResult:
-    worlds: pd.DataFrame           # one row per world: theta values + metrics
+    worlds: pd.DataFrame  # one row per world: theta values + metrics
     lec_grid: np.ndarray
-    lec: np.ndarray                # (n_out, len(grid)) exceedance probabilities per world
+    lec: np.ndarray  # (n_out, len(grid)) exceedance probabilities per world
     param_names: list[str]
     n_inner: int
 
@@ -31,19 +32,37 @@ class NestedResult:
         rows = []
         for m in metrics:
             v = self.worlds[m]
-            rows.append({"metric": m, "p05": v.quantile(0.05), "median": v.median(), "mean": v.mean(), "p95": v.quantile(0.95),
-                         "ratio_p95_p05": v.quantile(0.95) / max(v.quantile(0.05), 1e-9)})
+            rows.append(
+                {
+                    "metric": m,
+                    "p05": v.quantile(0.05),
+                    "median": v.median(),
+                    "mean": v.mean(),
+                    "p95": v.quantile(0.95),
+                    "ratio_p95_p05": v.quantile(0.95) / max(v.quantile(0.05), 1e-9),
+                }
+            )
         return pd.DataFrame(rows)
 
 
-def run_nested(cfg: ModelConfig, n_outer: int = 300, n_inner: int = 1000, seed: int = 7, dependence: str = "correlated",
-               mitigations: Iterable[str] = (), scenario: ScenarioSpec | None = None, lec_grid=None) -> NestedResult:
+def run_nested(
+    cfg: ModelConfig,
+    n_outer: int = 300,
+    n_inner: int = 1000,
+    seed: int = 7,
+    dependence: str = "correlated",
+    mitigations: Iterable[str] = (),
+    scenario: ScenarioSpec | None = None,
+    lec_grid=None,
+) -> NestedResult:
     reg = cfg.registry
     rng = np.random.default_rng([seed, 999])
     theta_w = reg.sample(latin_hypercube(n_outer, len(reg), rng))
     theta_rep = {k: np.repeat(v, n_inner) for k, v in theta_w.items()}
     sim = Simulator(cfg, mitigations, scenario)
-    res = sim.run(SimulationSettings(n_years=n_outer * n_inner, seed=seed, dependence=dependence, chunk_size=50_000), theta=theta_rep)
+    res = sim.run(
+        SimulationSettings(n_years=n_outer * n_inner, seed=seed, dependence=dependence, chunk_size=50_000), theta=theta_rep
+    )
     L = res.total.reshape(n_outer, n_inner)
     dt = res.downtime_days.reshape(n_outer, n_inner)
     df = pd.DataFrame({k: v for k, v in theta_w.items()})

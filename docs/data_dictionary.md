@@ -11,8 +11,10 @@ Every value is an **assumption for a fictional asset**. `basis` records what kin
 | engineering_convention | a standard modelling choice (e.g. annual proof test, beta-factor range) |
 | synthetic_calibrated | generic prior, optionally updated with the synthetic records (Bayesian module) |
 
-Uncertainty: all parameters below are **epistemic** (sampled once per simulated world). Aleatory variability
-(event counts, branch outcomes, per-event durations and costs, year-level drivers, oil price) is described after the table.
+Uncertainty: parameters with a distribution are **epistemic** (sampled once per simulated world); parameters shown as
+`fixed` carry no modelled uncertainty. Aleatory variability (event counts, branch outcomes, per-event durations and
+costs, year-level drivers, oil price) is described after the table. The 5–95 % column is the prior range; parameters
+marked `synthetic_calibrated` are replaced by their posteriors in the main analysis (see `outputs/results/bayesian_updates.csv`).
 
 ## Process Safety
 
@@ -25,7 +27,7 @@ Uncertainty: all parameters below are **epistemic** (sampled once per simulated 
 | `psv_pfd` | Probability pressure protection (PSV/HIPPS) fails on demand, leading to loss of containment | probability per demand | lognormal(median=0.01, EF=3) | 0.01 | 0.00333 – 0.03 | assumption | Treated as a single protection layer of roughly SIL 2 equivalent (assumption). |
 | `p_large_release` | Fraction of releases that are large (> ~10 kg/s) | probability | beta(a=2, b=38; mean=0.05) | 0.0427 | 0.00919 – 0.116 | order_of_magnitude | Public release statistics are dominated by small releases; a few percent are major (assumption within that pattern). |
 | `p_medium_release` | Fraction of releases that are medium (~1-10 kg/s) | probability | fixed 0.25 | 0.25 | — | assumption | Remainder after large are small. |
-| `p_ign_small` | Ignition probability of a small, unisolated release | probability | triangular(0.005, 0.01, 0.02) | 0.0113 | 0.00694 – 0.0173 | order_of_magnitude | Ignition probability rises with release rate; published ignition models (e.g. IOGP RADD ignition data) give values of order 1 % for small and 10 %+ for large releases. |
+| `p_ign_small` | Ignition probability of a small, unisolated release | probability | triangular(0.005, 0.01, 0.02) | 0.0113 | 0.00694 – 0.0173 | order_of_magnitude | Published ignition-probability correlations (e.g. in the IOGP Risk Assessment Data Directory) increase with release rate, from around or below 1 % for small releases to of order 10 % or more for large ones. The values used here are assumptions placed within that pattern. |
 | `p_ign_medium` | Ignition probability of a medium, unisolated release | probability | triangular(0.02, 0.04, 0.08) | 0.0454 | 0.0277 – 0.069 | order_of_magnitude | See p_ign_small. |
 | `p_ign_large` | Ignition probability of a large, unisolated release | probability | triangular(0.06, 0.12, 0.25) | 0.139 | 0.0839 – 0.215 | order_of_magnitude | See p_ign_small. |
 | `ign_isolation_factor` | Multiplier on ignition probability when the release is isolated (shorter duration, smaller cloud) | multiplier | triangular(0.3, 0.5, 0.7) | 0.5 | 0.363 – 0.637 | assumption | Judgement. |
@@ -70,6 +72,7 @@ Uncertainty: all parameters below are **epistemic** (sampled once per simulated 
 | `fw_pump_ftr_per_h` | Firewater pump fail-to-run rate during a fire | per hour | lognormal(median=5e-05, EF=3) | 5e-05 | 1.67e-05 – 0.00015 | assumption | Combined with a 6 h mission time. |
 | `fw_mission_time_h` | Required firewater run time during a fire | hours | fixed 6 | 6 | — | assumption | Duration of a sustained fire until inventory is blown down and fire is out. |
 | `fw_elec_ccf_beta` | Beta-factor for common-cause failure to start of the two electric firewater pumps | fraction | triangular(0.05, 0.1, 0.2) | 0.113 | 0.0694 – 0.173 | engineering_convention | Same room, same switchboard, same maintenance -> high beta. |
+| `fw_diesel_ccf_beta` | Beta-factor for common-cause failure to start of diesel firewater pumps (only used with two or more diesel pumps) | fraction | triangular(0.05, 0.1, 0.2) | 0.113 | 0.0694 – 0.173 | engineering_convention | Identical diesel drivers share fuel, starting system design and maintenance; same range as the electric pumps. |
 | `fw_header_fail` | Probability the firewater ring main/header cannot deliver (impaired section, blockage, closed isolation valve) | probability per demand | lognormal(median=0.002, EF=5) | 0.002 | 0.0004 – 0.01 | assumption | Single series element for all pumps; very uncertain. |
 
 ## Mechanical
@@ -77,7 +80,7 @@ Uncertainty: all parameters below are **epistemic** (sampled once per simulated 
 | variable | definition | unit | distribution | median | 5–95 % | basis | rationale |
 |---|---|---|---|---|---|---|---|
 | `comp_weibull_shape` | Weibull (power-law NHPP) shape parameter for compressor train failures | dimensionless | triangular(1.2, 1.6, 2.2) | 1.65 | 1.34 – 2.03 | assumption | Shape > 1 represents wear-out between overhauls. |
-| `comp_weibull_scale_years` | Weibull scale (years since overhaul at which expected cumulative failures = 1) | years | triangular(2.5, 3.5, 5) | 3.63 | 2.85 – 4.57 | synthetic_calibrated | Gives roughly 0.3-0.5 failures per train-year at mid-cycle. |
+| `comp_weibull_scale_years` | Weibull scale (years since overhaul at which expected cumulative failures = 1) | years | triangular(2.5, 3.5, 5) | 3.63 | 2.85 – 4.57 | assumption | Gives roughly 0.3-0.5 failures per train-year at mid-cycle. |
 | `comp_age_years` | Age of compressor trains since last major overhaul at the start of the year | years | fixed 2 | 2 | — | assumption | Mid-way through a ~4 year overhaul cycle. |
 | `comp_production_impact` | Fraction of complex production lost while one compressor train is down | fraction | triangular(0.25, 0.4, 0.5) | 0.387 | 0.293 – 0.465 | assumption | Gas handling constraint forces choke-back (flaring limits). |
 | `comp_repair_days` | Median repair duration of a compressor failure | days | triangular(3, 7, 14) | 7.8 | 4.48 – 12 | assumption | Depends on spares availability. |
@@ -88,7 +91,7 @@ Uncertainty: all parameters below are **epistemic** (sampled once per simulated 
 | `pipeline_rate_per_km_yr` | Export pipeline loss-of-containment frequency | per km-year | lognormal(median=0.0005, EF=3) | 0.0005 | 0.000167 – 0.0015 | order_of_magnitude | Order 1e-4 to 1e-3 per km-year is the range suggested by public pipeline loss-of-containment compilations (e.g. PARLOC-type studies); value is an assumption. |
 | `pipeline_repair_days` | Median outage duration for an export pipeline repair | days | triangular(20, 45, 90) | 50.3 | 29.4 – 77.5 | assumption | Mobilising a repair spread and clamp. |
 | `pipeline_repair_cost_usd` | Median direct repair cost of a pipeline failure | USD | triangular(4e+06, 8e+06, 1.5e+07) | 8.8e+06 | 5.48e+06 – 1.3e+07 | assumption | Vessel spread and repair clamp. |
-| `spurious_trip_rate` | Rate of spurious platform trips (instrument failures, procedural deviations) | per complex-year | lognormal(median=3, EF=2) | 3 | 1.5 – 6 | assumption | Several unplanned trips per year across the complex is typical of mature assets (judgement). |
+| `spurious_trip_rate` | Rate of spurious platform trips (instrument failures, procedural deviations) | per complex-year | lognormal(median=3, EF=2) | 3 | 1.5 – 6 | synthetic_calibrated | Several unplanned trips per year across the complex (judgement). Generic prior, optionally replaced by the Gamma posterior from the synthetic trip records. |
 
 ## External
 

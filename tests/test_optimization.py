@@ -10,6 +10,7 @@ from offshore_risk.optimization.portfolio import exhaustive_search, feasible_sub
 def brute(costs, a, b, budget):
     def val(c):
         return sum(a[i] for i in c) + sum(b[i, j] for i, j in combinations(sorted(c), 2))
+
     return exhaustive_search(costs, val, budget)
 
 
@@ -60,4 +61,7 @@ def test_optimizer_small_end_to_end(cfg):
     res = opt.optimise(budget=1.0e6, objective="eal")
     assert res["capex"] <= 1.0e6
     best, best_v, _ = opt.exhaustive(budget=1.0e6, objective="eal")
-    assert res["simulated_value"] == pytest.approx(best_v, rel=0.05) or sorted(best) == sorted(res["selected"])
+    # these controls act on different mechanisms, so pairwise terms are exact and the MILP must find the optimum
+    assert sorted(best) == sorted(res["selected"])
+    assert res["simulated_value"] == pytest.approx(best_v)
+    assert res["predicted_value"] == pytest.approx(res["simulated_value"], rel=1e-6)

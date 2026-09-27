@@ -1,0 +1,103 @@
+{
+  "mode": "full",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "convergence_cv": {
+    "10000": {
+      "eal": 0.016095695336237552,
+      "p95": 0.02244513078328941,
+      "p99": 0.07173452947986794,
+      "es99": 0.09573658806550009
+    },
+    "50000": {
+      "eal": 0.009727809369586128,
+      "p95": 0.005679610780322263,
+      "p99": 0.020231947430410742,
+      "es99": 0.040271586215861514
+    },
+    "100000": {
+      "eal": 0.00570004654651369,
+      "p95": 0.0052228307130553755,
+      "p99": 0.008407333688776662,
+      "es99": 0.015548056800312592
+    }
+  },
+  "event_tree_releases": 184808,
+  "event_tree_max_abs_z": 0.8054296262188755,
+  "dependence": {
+    "mean releases per year": {
+      "model_a": 1.18721,
+      "model_b": 1.19231,
+      "ratio": 1.004295785918245
+    },
+    "mean compressor loss (USD)": {
+      "model_a": 5126648.411686883,
+      "model_b": 5254891.541962051,
+      "ratio": 1.0250150039512793
+    },
+    "EAL (USD)": {
+      "model_a": 22009130.95567627,
+      "model_b": 22603858.806783028,
+      "ratio": 1.027021868891801
+    },
+    "P90 (USD)": {
+      "model_a": 39938037.94480793,
+      "model_b": 42294778.195119165,
+      "ratio": 1.059009915649039
+    },
+    "P95 (USD)": {
+      "model_a": 56340916.47953058,
+      "model_b": 60810471.66144627,
+      "ratio": 1.0793305373997517
+    },
+    "P99 (USD)": {
+      "model_a": 181192645.90501264,
+      "model_b": 186485921.90738744,
+      "ratio": 1.0292135256148847
+    },
+    "ES99 (USD)": {
+      "model_a": 354326189.28136927,
+      "model_b": 363271195.1564304,
+      "ratio": 1.0252451163522602
+    }
+  },
+  "dependence_strong": {
+    "P95": 1.1530301134044691,
+    "P99": 1.086798268849511,
+    "ES99": 1.0607522236569682,
+    "EAL": 1.0509658042576897
+  },
+  "optimisation": [
+    {
+      "objective": "eal",
+      "milp_selection": "inspection_programme + compressor_pm + critical_spares + ptw_competence",
+      "milp_value_simulated": 4876439.017817866,
+      "milp_value_predicted": 4876439.01781787,
+      "exhaustive_best": "inspection_programme + compressor_pm + critical_spares + ptw_competence",
+      "exhaustive_value": 4876439.017817866,
+      "feasible_portfolios": 114,
+      "milp_rank": 1,
+      "capex": 5000000.0,
+      "budget": 5000000.0
+    },
+    {
+      "objective": "es99",
+      "milp_selection": "gas_detection_upgrade + critical_spares + ptw_competence",
+      "milp_value_simulated": 85528819.77392834,
+      "milp_value_predicted": 86207755.15508461,
+      "exhaustive_best": "gas_detection_upgrade + critical_spares + ptw_competence",
+      "exhaustive_value": 85528819.77392834,
+      "feasible_portfolios": 114,
+      "milp_rank": 1,
+      "capex": 4500000.0,
+      "budget": 5000000.0
+    }
+  ],
+  "bayes_coverage": 0.9005,
+  "bayes_coverage_reps": 2000
+}

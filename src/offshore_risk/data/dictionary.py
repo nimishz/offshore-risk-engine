@@ -1,4 +1,5 @@
 """Generate the data dictionary from the configuration (so the two cannot drift apart)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,16 +36,24 @@ def build(cfg: ModelConfig, out_md: Path | None = None, out_csv: Path | None = N
         "| engineering_convention | a standard modelling choice (e.g. annual proof test, beta-factor range) |",
         "| synthetic_calibrated | generic prior, optionally updated with the synthetic records (Bayesian module) |",
         "",
-        "Uncertainty: all parameters below are **epistemic** (sampled once per simulated world). Aleatory variability",
-        "(event counts, branch outcomes, per-event durations and costs, year-level drivers, oil price) is described after the table.",
+        "Uncertainty: parameters with a distribution are **epistemic** (sampled once per simulated world); parameters shown as",
+        "`fixed` carry no modelled uncertainty. Aleatory variability (event counts, branch outcomes, per-event durations and",
+        "costs, year-level drivers, oil price) is described after the table. The 5–95 % column is the prior range; parameters",
+        "marked `synthetic_calibrated` are replaced by their posteriors in the main analysis (see `outputs/results/bayesian_updates.csv`).",
         "",
     ]
     for cat, g in df.groupby(df["category"].str.split("/").str[0], sort=False):
-        lines += [f"## {cat.replace('_', ' ').title()}", "",
-                  "| variable | definition | unit | distribution | median | 5–95 % | basis | rationale |", "|---|---|---|---|---|---|---|---|"]
+        lines += [
+            f"## {cat.replace('_', ' ').title()}",
+            "",
+            "| variable | definition | unit | distribution | median | 5–95 % | basis | rationale |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
         for r in g.itertuples():
             rng = "—" if r.p05 == r.p95 else f"{_fmt(r.p05)} – {_fmt(r.p95)}"
-            lines.append(f"| `{r.variable}` | {r.definition} | {r.unit} | {r.distribution} | {_fmt(r.median)} | {rng} | {r.basis} | {r.rationale} |")
+            lines.append(
+                f"| `{r.variable}` | {r.definition} | {r.unit} | {r.distribution} | {_fmt(r.median)} | {rng} | {r.basis} | {r.rationale} |"
+            )
         lines.append("")
 
     al, fin, drv = cfg.aleatory, cfg.financial, cfg.drivers
@@ -78,8 +87,10 @@ def build(cfg: ModelConfig, out_md: Path | None = None, out_csv: Path | None = N
         "|---|---|---|---|---|---|---|",
     ]
     for c, p in cfg.asset["platforms"].items():
-        lines.append(f"| {c} | {p['name']} | {p['replacement_value_usd']:,.0f} | {p['production_bopd']:,} | {p['release_equipment_factor']} | "
-                     f"{p['gas_release_fraction']} | {p['p_power_loss_given_fire']} |")
+        lines.append(
+            f"| {c} | {p['name']} | {p['replacement_value_usd']:,.0f} | {p['production_bopd']:,} | {p['release_equipment_factor']} | "
+            f"{p['gas_release_fraction']} | {p['p_power_loss_given_fire']} |"
+        )
     lines.append("")
     out_md.write_text("\n".join(lines), encoding="utf-8")
     return df

@@ -38,7 +38,9 @@ def test_repeated_event_detected_and_naive_is_wrong():
 def test_exact_matches_enumeration_random_trees(seed):
     rng = np.random.default_rng(seed)
     ev = [BasicEvent(f"E{i}") for i in range(7)]
-    t = OR("T", AND("G1", ev[0], OR("G2", ev[1], ev[2], ev[6])), KOFN("G3", 2, ev[2], ev[3], ev[4]), AND("G4", ev[5], ev[6], ev[0]))
+    t = OR(
+        "T", AND("G1", ev[0], OR("G2", ev[1], ev[2], ev[6])), KOFN("G3", 2, ev[2], ev[3], ev[4]), AND("G4", ev[5], ev[6], ev[0])
+    )
     ft = FaultTree(t)
     p = {e.name: rng.uniform(0.01, 0.5) for e in ev}
     assert ft.probability(p, "exact") == pytest.approx(ft.probability(p, "enumeration"), rel=1e-12)
@@ -97,9 +99,48 @@ def test_fire_protection_tree_structure(cfg):
     assert float(fw.probability(be, "independent")[0]) < float(fw.probability(be, "exact")[0])
 
 
+@pytest.mark.parametrize("ne,nd", [(1, 1), (2, 1), (3, 1), (3, 2), (0, 2), (2, 0)])
+def test_architectures_have_unique_events_and_exact_evaluation(cfg, ne, nd):
+    """Any pump count gives distinct basic events; exact evaluation still matches enumeration."""
+    ft = fire_protection_tree(ne, nd)
+    th = cfg.registry.at_quantile(1, 0.5)
+    be = fire_protection_basic_events(th, 0.1, ne, nd)
+    assert set(be) >= set(ft.basic_events)
+    n_pump_events = sum(1 for e in ft.basic_events if e.startswith(("EPUMP_", "DPUMP_")))
+    assert n_pump_events == 3 * (ne + nd)
+    if len(ft.basic_events) <= 18:
+        assert float(ft.probability(be)[0]) == pytest.approx(float(ft.probability(be, "enumeration")[0]), rel=1e-10)
+
+
+def test_no_pumps_rejected():
+    with pytest.raises(ValueError):
+        fire_protection_tree(0, 0)
+
+
+def test_more_pumps_never_worse(cfg):
+    th = cfg.registry.at_quantile(1, 0.5)
+
+    def pfd(ne, nd):
+        return float(firewater_subtree(ne, nd).probability(fire_protection_basic_events(th, 0.1, ne, nd))[0])
+
+    assert pfd(2, 1) <= pfd(1, 1)
+    assert pfd(3, 1) <= pfd(2, 1)
+    assert pfd(2, 2) <= pfd(2, 1)
+
+
+def test_basic_events_clipped(cfg):
+    th = cfg.registry.at_quantile(1, 0.5)
+    th["fw_header_fail"] = th["fw_header_fail"] * 1e6
+    be = fire_protection_basic_events(th, 0.1, 2, 1)
+    assert all((0 <= v).all() and (v <= 1).all() for v in be.values())
+
+
 def test_extra_diesel_pump_helps_most_when_power_is_lost(cfg):
     th = cfg.registry.at_quantile(1, 0.5)
-    base = lambda pp, nd: float(firewater_subtree(2, nd).probability(fire_protection_basic_events(th, pp, 2, nd))[0])
+
+    def base(pp, nd):
+        return float(firewater_subtree(2, nd).probability(fire_protection_basic_events(th, pp, 2, nd))[0])
+
     gain_ucp = base(0.6, 1) - base(0.6, 2)
     gain_other = base(0.1, 1) - base(0.1, 2)
     assert gain_ucp > gain_other > 0

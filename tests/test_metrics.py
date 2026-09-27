@@ -61,7 +61,14 @@ def test_appetite_classification(cfg):
     assert classify(50, 100, 0.8) == WITHIN
     assert classify(85, 100, 0.8) == NEAR
     assert classify(101, 100, 0.8) == OUTSIDE
-    metrics = {"eal": 1e6, "p95": 1e9, "downtime_p95_days": 24.0, "max_event_p99": 0, "pfd_firewater": 0.0, "pfd_fire_protection": 0.0}
+    metrics = {
+        "eal": 1e6,
+        "p95": 1e9,
+        "downtime_p95_days": 24.0,
+        "max_event_p99": 0,
+        "pfd_firewater": 0.0,
+        "pfd_fire_protection": 0.0,
+    }
     df = evaluate_appetite(cfg.appetite, metrics).set_index("limit_id")
     assert df.loc["expected_annual_loss", "status"] == WITHIN
     assert df.loc["p95_annual_loss", "status"] == OUTSIDE

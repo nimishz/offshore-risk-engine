@@ -1,15 +1,15 @@
 metric,value_musd,meaning
-eal,22.607180967113887,Expected annual loss: long-run average; the right basis for budgeting and cost-benefit of controls.
-sd,45.4342698678623,Standard deviation of annual loss (volatility).
-se_eal,0.1436757766092023,Monte Carlo standard error of the EAL estimate (s / sqrt(N)).
-median,13.598777599713415,"A typical year. Far below the EAL for skewed losses: most years are cheap, a few are very expensive."
-p75,24.932772359108206,Loss exceeded one year in four.
-p90,42.38266081727767,Loss exceeded one year in ten.
-p95,61.45133537198568,Loss exceeded one year in twenty; a common planning / appetite anchor.
-p99,180.08867142654998,Loss exceeded one year in a hundred.
-var95,61.45133537198568,"Value at Risk at 95 %: same number as P95, stated as a capital/contingency level."
-var99,180.08867142654998,Value at Risk at 99 %.
-es95,145.33815296603794,"Expected shortfall at 95 %: average of the worst 5 % of years; captures how bad the tail is, not just where it starts."
-es99,357.17466205890963,Expected shortfall at 99 %: average of the worst 1 % of years; sensitive to major-accident severity.
-max,2266.309458455706,"Largest simulated year: depends mostly on sample size; an indicator, not a risk measure."
+eal,22.603858806783027,Expected annual loss: long-run average; the right basis for budgeting and cost-benefit of controls.
+sd,45.6487716258564,Standard deviation of annual loss (volatility).
+se_eal,0.14435409072657387,Monte Carlo standard error of the EAL estimate (s / sqrt(N)).
+median,13.446938842631496,"A typical year. Far below the EAL for skewed losses: most years are cheap, a few are very expensive."
+p75,24.835606004436308,Loss exceeded one year in four.
+p90,42.294778195119164,Loss exceeded one year in ten.
+p95,60.81047166144627,Loss exceeded one year in twenty; a common planning / appetite anchor.
+p99,186.48592190738742,Loss exceeded one year in a hundred.
+var95,60.81047166144627,"Value at Risk at 95 %: same number as P95, stated as a capital/contingency level."
+var99,186.48592190738742,Value at Risk at 99 %.
+es95,147.64098711223912,"Expected shortfall at 95 %: average of the worst 5 % of years; captures how bad the tail is, not just where it starts."
+es99,363.27119515643045,Expected shortfall at 99 %: average of the worst 1 % of years; sensitive to major-accident severity.
+max,2189.9218975650265,"Largest simulated year: depends mostly on sample size; an indicator, not a risk measure."
 n,100000.0,

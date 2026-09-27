@@ -9,12 +9,12 @@
       "ptw_competence"
     ],
     "capex": 5000000.0,
-    "predicted_value": 4833933.880160354,
-    "simulated_value": 4833933.8801603615,
-    "simulated_eal_reduction": 4833933.8801603615,
-    "simulated_es99_reduction": 63826152.95244485,
+    "predicted_value": 4876439.01781787,
+    "simulated_value": 4876439.017817866,
+    "simulated_eal_reduction": 4876439.017817866,
+    "simulated_es99_reduction": 65197580.92447734,
     "annualised_cost": 1698714.8581597793,
-    "standalone_sum": 5472438.361177087
+    "standalone_sum": 5544483.736034006
   },
   "es99": {
     "objective": "es99",
@@ -25,12 +25,12 @@
       "ptw_competence"
     ],
     "capex": 4500000.0,
-    "predicted_value": 96426991.80605602,
-    "simulated_value": 95594962.29540691,
-    "simulated_eal_reduction": 4734503.934599247,
-    "simulated_es99_reduction": 95594962.29540691,
+    "predicted_value": 86207755.15508461,
+    "simulated_value": 85528819.77392834,
+    "simulated_eal_reduction": 4581669.730735723,
+    "simulated_es99_reduction": 85528819.77392834,
     "annualised_cost": 953046.2664301365,
-    "standalone_sum": 90447033.40431511
+    "standalone_sum": 82946776.41661298
   },
   "net_benefit": {
     "objective": "net_benefit",
@@ -41,11 +41,11 @@
       "ptw_competence"
     ],
     "capex": 4500000.0,
-    "predicted_value": 3781457.66816911,
-    "simulated_value": 3781457.66816911,
-    "simulated_eal_reduction": 4734503.934599247,
-    "simulated_es99_reduction": 95594962.29540691,
+    "predicted_value": 3628623.4643055825,
+    "simulated_value": 3628623.464305586,
+    "simulated_eal_reduction": 4581669.730735723,
+    "simulated_es99_reduction": 85528819.77392834,
     "annualised_cost": 953046.2664301365,
-    "standalone_sum": 3942182.5311800907
+    "standalone_sum": 3806844.256482295
   }
 }

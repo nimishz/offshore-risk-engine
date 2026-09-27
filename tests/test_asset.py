@@ -50,9 +50,9 @@ def test_lost_production_integration(asset):
     cap = asset.capacity_table()
     i = asset.index
     D = np.zeros((2, 6))
-    D[0, i("PPA")] = 10.0                      # PPA down 10 days
+    D[0, i("PPA")] = 10.0  # PPA down 10 days
     D[1, i("PPA")] = 10.0
-    D[1, i("UCP")] = 4.0                       # UCP down 4 days as well
+    D[1, i("UCP")] = 4.0  # UCP down 4 days as well
     lost = lost_production_bbl(D, cap)
     q = cap[0]
     assert lost[0] == pytest.approx(10 * (q - asset.capacity({"PPA"})))

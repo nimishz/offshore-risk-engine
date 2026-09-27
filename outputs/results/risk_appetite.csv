@@ -1,7 +1,7 @@
 limit_id,description,value,limit,utilisation,unit,status
-expected_annual_loss,Expected annual operational loss (EAL),22607180.967113886,25000000.0,0.9042872386845554,USD/yr,Near threshold
-p95_annual_loss,1-in-20-year annual loss (P95),61451335.37198568,70000000.0,0.8778762195997954,USD/yr,Near threshold
-production_downtime_p95,"P95 of annual lost production, in equivalent days of full-complex shutdown",30.822785272222735,25.0,1.2329114108889094,days/yr,Outside appetite
-single_event_loss_1in100,1-in-100-year largest single-event loss (P99 of the annual maximum event loss),154177306.62382317,250000000.0,0.6167092264952927,USD,Within appetite
-firewater_unavailability,Firewater system probability of failure on demand (fire on a production platform),0.007421610134892267,0.01,0.7421610134892267,probability per demand,Within appetite
-fire_protection_unavailability,"Overall fire-protection function PFD (firewater, deluge, detection) on a production platform",0.02417233213839345,0.05,0.483446642767869,probability per demand,Within appetite
+expected_annual_loss,Expected annual operational loss (EAL),22603858.806783028,25000000.0,0.9041543522713211,USD/yr,Near threshold
+p95_annual_loss,1-in-20-year annual loss (P95),60810471.66144627,70000000.0,0.8687210237349468,USD/yr,Near threshold
+production_downtime_p95,"P95 of annual lost production, in equivalent days of full-complex shutdown",31.002122398536205,25.0,1.240084895941448,days/yr,Outside appetite
+single_event_loss_1in100,1-in-100-year largest single-event loss (P99 of the annual maximum event loss),159924071.81326565,250000000.0,0.6396962872530626,USD,Within appetite
+firewater_unavailability,Firewater system probability of failure on demand (fire on a production platform),0.007424256112273881,0.01,0.742425611227388,probability per demand,Within appetite
+fire_protection_unavailability,"Overall fire-protection function PFD (firewater, deluge, detection) on a production platform",0.02412270727084161,0.05,0.4824541454168322,probability per demand,Within appetite

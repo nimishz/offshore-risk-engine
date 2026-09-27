@@ -1,0 +1,13 @@
+# Local-only dashboard: do not listen on external interfaces, do not send usage statistics.
+[server]
+address = "localhost"
+headless = true
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[client]
+toolbarMode = "minimal"

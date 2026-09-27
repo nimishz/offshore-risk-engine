@@ -5,9 +5,10 @@ uncertain effectiveness drawn from its own random stream) or the structure of
 a protection system (e.g. number of firewater pumps), and the whole model is
 re-run. Risk reduction is then measured, not assumed.
 """
+
 from __future__ import annotations
 
-from typing import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 import numpy as np
 

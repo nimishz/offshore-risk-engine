@@ -59,7 +59,9 @@ def test_isolated_attribute():
 def test_degenerate_probabilities():
     op = RELEASE_TREE.outcome_probabilities({**P, "p_ign": 0.0, "p_ign_iso": 0.0})
     assert op["controlled_release"] + op["uncontrolled_release"] == pytest.approx(1.0)
-    op = RELEASE_TREE.outcome_probabilities({**P, "p_detect": 1.0, "p_isolate": 1.0, "p_ign_iso": 1.0, "p_exp": 0.0, "p_fp_ok": 1.0})
+    op = RELEASE_TREE.outcome_probabilities(
+        {**P, "p_detect": 1.0, "p_isolate": 1.0, "p_ign_iso": 1.0, "p_exp": 0.0, "p_fp_ok": 1.0}
+    )
     assert op["minor_fire"] == pytest.approx(1.0)
 
 

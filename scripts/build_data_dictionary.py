@@ -1,4 +1,5 @@
 """Regenerate docs/data_dictionary.md and data/processed/data_dictionary.csv from config."""
+
 from offshore_risk import load_config
 from offshore_risk.data.dictionary import build
 

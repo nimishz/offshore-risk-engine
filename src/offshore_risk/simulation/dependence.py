@@ -6,6 +6,7 @@ Model B ('correlated'):  drivers are joined by a Gaussian copula.
 Both use identical lognormal marginals with mean 1, so each risk's expected
 frequency is the same under A and B; only co-movement differs.
 """
+
 from __future__ import annotations
 
 import numpy as np

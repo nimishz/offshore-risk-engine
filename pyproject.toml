@@ -4,14 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "offshore-risk-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Quantitative operational risk and resilience model for a fictional offshore production complex"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
+keywords = ["risk", "reliability", "fault tree", "event tree", "monte carlo", "enterprise risk management", "offshore"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
 dependencies = [
-    "numpy>=1.26",
-    "scipy>=1.11",
+    "numpy>=2.0",
+    "scipy>=1.11",  # scipy.optimize.milp
     "pandas>=2.0",
     "matplotlib>=3.8",
     "pyyaml>=6.0",
@@ -19,7 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dashboard = ["streamlit>=1.30"]
-dev = ["pytest>=7", "nbformat>=5", "nbconvert>=7", "ipykernel>=6"]
+dev = ["pytest>=7", "ruff>=0.6", "nbformat>=5", "nbconvert>=7", "ipykernel>=6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -27,3 +35,19 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "NPY"]
+ignore = [
+    "E501",   # long lines are allowed in tables of parameters and test data
+    "E741",   # single-letter names follow the mathematical notation (L, O)
+    "B905",   # zip(strict=...) is not required where lengths are equal by construction
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B018"]

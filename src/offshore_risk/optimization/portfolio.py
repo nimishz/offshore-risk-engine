@@ -19,10 +19,11 @@ Interactions of order > 2 are ignored by the MILP; ``simulate_portfolio``
 re-simulates the chosen set so the prediction error can be reported, and
 ``exhaustive_search`` checks the optimum over all feasible portfolios.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from itertools import combinations
-from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -54,13 +55,24 @@ def solve_milp(costs: Sequence[float], a: Sequence[float], b: np.ndarray | None,
     rows, lo, hi = [], [], []
     r = np.zeros(nv)
     r[:n] = c
-    rows.append(r); lo.append(-np.inf); hi.append(budget)
+    rows.append(r)
+    lo.append(-np.inf)
+    hi.append(budget)
     for k, (i, j) in enumerate(pairs):
-        for t in (i, j):                       # y - x_t <= 0
-            r = np.zeros(nv); r[n + k] = 1; r[t] = -1
-            rows.append(r); lo.append(-np.inf); hi.append(0)
-        r = np.zeros(nv); r[i] = 1; r[j] = 1; r[n + k] = -1   # x_i + x_j - y <= 1
-        rows.append(r); lo.append(-np.inf); hi.append(1)
+        for t in (i, j):  # y - x_t <= 0
+            r = np.zeros(nv)
+            r[n + k] = 1
+            r[t] = -1
+            rows.append(r)
+            lo.append(-np.inf)
+            hi.append(0)
+        r = np.zeros(nv)
+        r[i] = 1
+        r[j] = 1
+        r[n + k] = -1  # x_i + x_j - y <= 1
+        rows.append(r)
+        lo.append(-np.inf)
+        hi.append(1)
     res = milp(obj, constraints=LinearConstraint(np.array(rows), lo, hi), integrality=np.ones(nv), bounds=Bounds(0, 1))
     if not res.success:
         raise RuntimeError(f"MILP failed: {res.message}")
@@ -90,8 +102,14 @@ def exhaustive_search(costs: Sequence[float], value: Callable[[tuple], float], b
 class PortfolioOptimizer:
     """Runs the simulations needed for a_i and b_ij, then solves the MILP."""
 
-    def __init__(self, cfg: ModelConfig, keys: Sequence[str] | None = None, n_years: int = 20_000,
-                 seed: int = 20260927, dependence: str = "correlated"):
+    def __init__(
+        self,
+        cfg: ModelConfig,
+        keys: Sequence[str] | None = None,
+        n_years: int = 20_000,
+        seed: int = 20260927,
+        dependence: str = "correlated",
+    ):
         self.cfg = cfg
         self.keys = list(keys) if keys is not None else list(cfg.mitigations)
         self.st = SimulationSettings(n_years=n_years, seed=seed, dependence=dependence)
@@ -129,20 +147,37 @@ class PortfolioOptimizer:
         x, pred = solve_milp(self.costs, a, b if interactions else None, budget)
         chosen = tuple(int(i) for i in np.flatnonzero(x))
         return {
-            "objective": objective, "budget": budget, "selected": [self.keys[i] for i in chosen], "selected_idx": chosen,
-            "capex": float(self.costs[list(chosen)].sum()), "predicted_value": pred,
+            "objective": objective,
+            "budget": budget,
+            "selected": [self.keys[i] for i in chosen],
+            "selected_idx": chosen,
+            "capex": float(self.costs[list(chosen)].sum()),
+            "predicted_value": pred,
             "simulated_value": self.value(chosen, objective),
             "simulated_eal_reduction": self.reduction(chosen, "eal"),
             "simulated_es99_reduction": self.reduction(chosen, "es99"),
             "annualised_cost": float(self.annual_costs[list(chosen)].sum()),
-            "a": a, "b": b,
+            "a": a,
+            "b": b,
         }
 
     def exhaustive(self, budget: float | None = None, objective: str = "eal"):
         budget = self.cfg.budget_usd if budget is None else budget
         best, best_v, table = exhaustive_search(list(self.costs), lambda c: self.value(c, objective), budget)
-        df = pd.DataFrame([{"portfolio": " + ".join(self.keys[i] for i in c) or "(none)", "capex": float(self.costs[list(c)].sum()),
-                            "value": v} for c, v in table]).sort_values("value", ascending=False).reset_index(drop=True)
+        df = (
+            pd.DataFrame(
+                [
+                    {
+                        "portfolio": " + ".join(self.keys[i] for i in c) or "(none)",
+                        "capex": float(self.costs[list(c)].sum()),
+                        "value": v,
+                    }
+                    for c, v in table
+                ]
+            )
+            .sort_values("value", ascending=False)
+            .reset_index(drop=True)
+        )
         return [self.keys[i] for i in best], best_v, df
 
     def coefficient_table(self, objective: str = "eal") -> pd.DataFrame:

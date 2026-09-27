@@ -18,12 +18,13 @@ Methods provided:
 ``mcub``         min-cut upper bound 1 - prod(1 - P(C)).
 ``enumeration``  brute force over all 2^n basic-event states (validation only).
 """
+
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from itertools import combinations, product
-from typing import Iterable, Mapping, Union
 
 import numpy as np
 import pandas as pd
@@ -52,7 +53,7 @@ class Gate:
             raise ValueError("gate needs at least one input")
 
 
-Node = Union[BasicEvent, Gate]
+Node = BasicEvent | Gate
 
 
 def AND(name: str, *inputs: Node, description: str = "") -> Gate:
