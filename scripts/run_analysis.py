@@ -106,8 +106,9 @@ def main(quick: bool = False):
     imp = fpt.importance(be)
     imp.to_csv(RES / "fault_tree_importance_PPA.csv", index=False)
     mcs = [{"cut_set": " AND ".join(sorted(cs)), "order": len(cs),
-            "probability": float(np.prod([float(np.asarray(be[e]).ravel()[0]) for e in cs]))} for cs in fpt.minimal_cut_sets()]
-    pd.DataFrame(mcs).sort_values("probability", ascending=False).to_csv(RES / "fault_tree_cut_sets_PPA.csv", index=False)
+            "probability": float(np.prod([float(np.asarray(be[e]).ravel()[0]) for e in sorted(cs)]))} for cs in fpt.minimal_cut_sets()]
+    (pd.DataFrame(mcs).sort_values(["probability", "cut_set"], ascending=[False, True])
+     .to_csv(RES / "fault_tree_cut_sets_PPA.csv", index=False))
     (RES / "fault_tree_fire_protection.txt").write_text(fpt.to_text(), encoding="utf-8")
     plots.save(plots.fault_tree_importance(imp), FIG / "fault_tree_importance.png")
     shape, scale = float(th["comp_weibull_shape"][0]), float(th["comp_weibull_scale_years"][0])

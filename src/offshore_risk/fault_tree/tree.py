@@ -149,7 +149,7 @@ class FaultTree:
             terms = []
             for cs in self.minimal_cut_sets():
                 t = 1.0
-                for e in cs:
+                for e in sorted(cs):  # fixed order -> bit-identical results across runs
                     t = t * np.asarray(probs[e], dtype=float)
                 terms.append(t)
             if method == "rare_event":
