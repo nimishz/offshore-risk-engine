@@ -1,0 +1,586 @@
+{
+  "seed": 20260927,
+  "n_main": 100000,
+  "bayesian": {
+    "fw_elec_pump_fts": {
+      "prior_mean": 0.01,
+      "posterior_mean": 0.027366863905325445,
+      "ci_width_reduction": 0.5032552159581928
+    },
+    "fw_diesel_pump_fts": {
+      "prior_mean": 0.02,
+      "posterior_mean": 0.013313609467455622,
+      "ci_width_reduction": 0.7543796770704535
+    },
+    "spurious_trip_rate": {
+      "prior_mean": 3.2785549802437375,
+      "posterior_mean": 4.6534914672538905,
+      "ci_width_reduction": 0.586131388445981
+    },
+    "total_release_rate": {
+      "prior_mean": 1.1928139250570973,
+      "posterior_mean": 0.9951323556024824,
+      "ci_width_reduction": 0.5063662910401772
+    }
+  },
+  "fault_tree": {
+    "WHP": {
+      "firewater_pfd_exact": 0.006011612711016203,
+      "firewater_pfd_naive_independent": 0.002825394181191876,
+      "fire_protection_pfd_exact": 0.019325167813287247
+    },
+    "PPA": {
+      "firewater_pfd_exact": 0.006011612711016203,
+      "firewater_pfd_naive_independent": 0.002825394181191876,
+      "fire_protection_pfd_exact": 0.019325167813287247
+    },
+    "PPB": {
+      "firewater_pfd_exact": 0.006011612711016203,
+      "firewater_pfd_naive_independent": 0.002825394181191876,
+      "fire_protection_pfd_exact": 0.019325167813287247
+    },
+    "UCP": {
+      "firewater_pfd_exact": 0.025019706334363557,
+      "firewater_pfd_naive_independent": 0.016735115086100927,
+      "fire_protection_pfd_exact": 0.03807866560324282
+    },
+    "LQ": {
+      "firewater_pfd_exact": 0.004110803348681467,
+      "firewater_pfd_naive_independent": 0.0023788400327366954,
+      "fire_protection_pfd_exact": 0.017449818034291686
+    },
+    "SWI": {
+      "firewater_pfd_exact": 0.004110803348681467,
+      "firewater_pfd_naive_independent": 0.0023788400327366954,
+      "fire_protection_pfd_exact": 0.017449818034291686
+    }
+  },
+  "metrics_model_b": {
+    "eal": 22607180.967113886,
+    "sd": 45434269.8678623,
+    "se_eal": 143675.7766092023,
+    "median": 13598777.599713415,
+    "p75": 24932772.359108206,
+    "p90": 42382660.81727767,
+    "p95": 61451335.37198568,
+    "p99": 180088671.42654997,
+    "var95": 61451335.37198568,
+    "var99": 180088671.42654997,
+    "es95": 145338152.96603793,
+    "es99": 357174662.05890965,
+    "max": 2266309458.455706,
+    "n": 100000,
+    "eal_ci90": [
+      22346312.644964736,
+      22879761.83385537
+    ],
+    "p99_ci90": [
+      173669719.08596528,
+      187283734.64480853
+    ],
+    "es99_ci90": [
+      342898831.40771943,
+      372113133.8904968
+    ],
+    "exceedance": {
+      "25000000.0": 0.24891,
+      "50000000.0": 0.07309,
+      "100000000.0": 0.02219,
+      "250000000.0": 0.00609,
+      "500000000.0": 0.00147
+    }
+  },
+  "dependence": {
+    "q0.5": {
+      "model_a": 13672138.039164377,
+      "model_b": 13598777.599713415,
+      "ratio": 0.9946343110901296
+    },
+    "q0.9": {
+      "model_a": 40276339.91455938,
+      "model_b": 42382660.81727767,
+      "ratio": 1.0522967307155158
+    },
+    "q0.95": {
+      "model_a": 56533885.95438481,
+      "model_b": 61451335.37198568,
+      "ratio": 1.0869823351886438
+    },
+    "q0.99": {
+      "model_a": 174069354.72602645,
+      "model_b": 180088671.42654997,
+      "ratio": 1.0345799908892495
+    },
+    "q0.995": {
+      "model_a": 287586772.24134564,
+      "model_b": 285935719.06232166,
+      "ratio": 0.9942589390806945
+    },
+    "es99": {
+      "model_a": 358294408.07629627,
+      "model_b": 357174662.05890965
+    },
+    "eal": {
+      "model_a": 22098127.821811005,
+      "model_b": 22607180.967113886
+    }
+  },
+  "counts_per_year": {
+    "releases": 1.19156,
+    "fires": 0.01979,
+    "explosions": 0.00236,
+    "catastrophic": 0.00025,
+    "escalations": 0.00171,
+    "evacuations": 0.00046
+  },
+  "derived_means": {
+    "pfd_fire_protection": [
+      0.02417233213839345,
+      0.02417233213839345,
+      0.02417233213839345,
+      0.04365252733419919,
+      0.022224312618812928,
+      0.022224312618812928
+    ],
+    "pfd_firewater": [
+      0.007421610134892267,
+      0.007421610134892267,
+      0.007421610134892267,
+      0.02723589063276429,
+      0.005440182085105042,
+      0.005440182085105042
+    ],
+    "pfd_gas_detection": 0.0009435087270142903,
+    "pfd_esd": 0.0017816877799681288,
+    "rate_release": 1.1938281855504884,
+    "rate_compressor": 0.7294760875715918,
+    "rate_power_loss": 0.1333826673767631,
+    "rate_pipeline": 0.018746916370362913,
+    "rate_spurious_trip": 4.6519613890581955,
+    "rate_weather": 0.4379081592344413,
+    "rate_collision": 0.012531769880601173
+  },
+  "downtime_days": {
+    "mean": 11.451771604069513,
+    "p95": 30.822785272222735
+  },
+  "appetite": {
+    "expected_annual_loss": {
+      "value": 22607180.967113886,
+      "limit": 25000000.0,
+      "status": "Near threshold"
+    },
+    "p95_annual_loss": {
+      "value": 61451335.37198568,
+      "limit": 70000000.0,
+      "status": "Near threshold"
+    },
+    "production_downtime_p95": {
+      "value": 30.822785272222735,
+      "limit": 25.0,
+      "status": "Outside appetite"
+    },
+    "single_event_loss_1in100": {
+      "value": 154177306.62382317,
+      "limit": 250000000.0,
+      "status": "Within appetite"
+    },
+    "firewater_unavailability": {
+      "value": 0.007421610134892267,
+      "limit": 0.01,
+      "status": "Within appetite"
+    },
+    "fire_protection_unavailability": {
+      "value": 0.02417233213839345,
+      "limit": 0.05,
+      "status": "Within appetite"
+    }
+  },
+  "nested": {
+    "eal": {
+      "p05": 14924980.389805986,
+      "median": 21713377.848799564,
+      "mean": 22581760.002618894,
+      "p95": 33135023.27535955,
+      "ratio_p95_p05": 2.2201049790317535
+    },
+    "p95": {
+      "p05": 37947107.68603389,
+      "median": 56452880.09216979,
+      "mean": 60028992.109301165,
+      "p95": 94345160.10379387,
+      "ratio_p95_p05": 2.486227959305494
+    },
+    "p99": {
+      "p05": 78842607.32859008,
+      "median": 165815082.49224144,
+      "mean": 173368930.69580314,
+      "p95": 292977313.282327,
+      "ratio_p95_p05": 3.715976972467359
+    },
+    "es99": {
+      "p05": 173861046.4094356,
+      "median": 315592401.4111141,
+      "mean": 330461231.7683154,
+      "p95": 542128388.9535029,
+      "ratio_p95_p05": 3.1181705169127585
+    }
+  },
+  "sensitivity_top": [
+    {
+      "parameter": "bi_value_fraction",
+      "eal_swing": 8297143.862571659,
+      "spearman_rho": 0.5298408115050719,
+      "S1": 0.2508935365584968
+    },
+    {
+      "parameter": "pipeline_rate_per_km_yr",
+      "eal_swing": 3196088.709848877,
+      "spearman_rho": 0.3148343427146419,
+      "S1": 0.09557273735878145
+    },
+    {
+      "parameter": "comp_weibull_scale_years",
+      "eal_swing": 3166209.3600579165,
+      "spearman_rho": -0.27467271670447935,
+      "S1": 0.07612157517623903
+    },
+    {
+      "parameter": "rel_flange_seal_rate",
+      "eal_swing": 3529158.4706872515,
+      "spearman_rho": 0.19626310164438526,
+      "S1": 0.07131451181805042
+    },
+    {
+      "parameter": "ptw_isolation_failure_prob",
+      "eal_swing": 4031842.716670748,
+      "spearman_rho": 0.19082894268089173,
+      "S1": 0.05731038029142975
+    },
+    {
+      "parameter": "rel_valve_rate",
+      "eal_swing": 2778028.2573590763,
+      "spearman_rho": 0.24938874617966358,
+      "S1": 0.07244361484524524
+    },
+    {
+      "parameter": "weather_rate",
+      "eal_swing": 3360279.4679086767,
+      "spearman_rho": 0.20034218963868522,
+      "S1": 0.049690175102911446
+    },
+    {
+      "parameter": "comp_production_impact",
+      "eal_swing": 1494958.8849943765,
+      "spearman_rho": 0.1911636322727017,
+      "S1": 0.08827168448685281
+    }
+  ],
+  "sensitivity_top_es99": [
+    {
+      "parameter": "bi_value_fraction",
+      "spearman_rho": 0.33567116044475276
+    },
+    {
+      "parameter": "pipeline_rate_per_km_yr",
+      "spearman_rho": 0.28348583428646423
+    },
+    {
+      "parameter": "pipeline_repair_days",
+      "spearman_rho": 0.20249676560478502
+    },
+    {
+      "parameter": "rel_valve_rate",
+      "spearman_rho": 0.1950512815705098
+    },
+    {
+      "parameter": "rel_flange_seal_rate",
+      "spearman_rho": 0.17727823298895617
+    },
+    {
+      "parameter": "p_large_release",
+      "spearman_rho": 0.13803798773742335
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "baseline",
+      "title": "Baseline (no forced event)",
+      "initiating_event": "-",
+      "annual_frequency": NaN,
+      "return_period_years": NaN,
+      "mean_event_loss": NaN,
+      "annual_eal": 22804496.846939072,
+      "annual_median": 13573108.992528727,
+      "annual_p95": 61836579.495683424,
+      "annual_p99": 184639146.25570294,
+      "annual_es99": 361719910.6280499,
+      "incremental_mean_loss": 0.0,
+      "mean_downtime_days": 11.504821931625381,
+      "p95_downtime_days": 31.307101590980885,
+      "pfd_fire_protection_PPA": 0.024170384289320578
+    },
+    {
+      "scenario": "S1_single_equipment_failure",
+      "title": "Single equipment failure",
+      "initiating_event": "One compressor train fails (wear-out failure between overhauls)",
+      "annual_frequency": 0.7321532923453757,
+      "return_period_years": 1.3658341913571208,
+      "mean_event_loss": 7104036.156156189,
+      "annual_eal": 29908533.003095254,
+      "annual_median": 20394613.42385207,
+      "annual_p95": 72747345.12381937,
+      "annual_p99": 193234327.25487584,
+      "annual_es99": 371210116.50522643,
+      "incremental_mean_loss": 7104036.156156189,
+      "mean_downtime_days": 15.19785490923542,
+      "p95_downtime_days": 36.84729213472147,
+      "pfd_fire_protection_PPA": 0.024170384289320578
+    },
+    {
+      "scenario": "S2_firewater_degradation",
+      "title": "Firewater system degradation",
+      "initiating_event": "One electric firewater pump out of service for the year and the diesel pump in poor condition",
+      "annual_frequency": NaN,
+      "return_period_years": NaN,
+      "mean_event_loss": NaN,
+      "annual_eal": 22888496.741013344,
+      "annual_median": 13573108.992528727,
+      "annual_p95": 61868121.23573094,
+      "annual_p99": 186082415.47038588,
+      "annual_es99": 369489916.8361161,
+      "incremental_mean_loss": 83999.89407427756,
+      "mean_downtime_days": 11.53364968850661,
+      "p95_downtime_days": 31.320534808267354,
+      "pfd_fire_protection_PPA": 0.029655192603197576
+    },
+    {
+      "scenario": "S3_major_hydrocarbon_release",
+      "title": "Major hydrocarbon release",
+      "initiating_event": "Large gas release on Production Platform A",
+      "annual_frequency": 0.01136637442775554,
+      "return_period_years": 87.97880153922264,
+      "mean_event_loss": 15952185.496255899,
+      "annual_eal": 38756682.34319497,
+      "annual_median": 17559231.974211536,
+      "annual_p95": 115777234.10464826,
+      "annual_p99": 502380386.87902945,
+      "annual_es99": 757570374.485322,
+      "incremental_mean_loss": 15952185.496255899,
+      "mean_downtime_days": 18.237407818076875,
+      "p95_downtime_days": 55.072724583694395,
+      "pfd_fire_protection_PPA": 0.024170384289320578
+    },
+    {
+      "scenario": "S4_multi_platform_shutdown",
+      "title": "Multi-platform shutdown",
+      "initiating_event": "Explosion on PPB that escalates to PPA and UCP",
+      "annual_frequency": 1.8272064294236544e-05,
+      "return_period_years": 54728.35383550092,
+      "mean_event_loss": 430520791.3913378,
+      "annual_eal": 453325288.2382769,
+      "annual_median": 410079494.5089383,
+      "annual_p95": 881203539.975898,
+      "annual_p99": 1173413297.6706054,
+      "annual_es99": 1377353994.9785728,
+      "incremental_mean_loss": 430520791.3913378,
+      "mean_downtime_days": 151.2783572913868,
+      "p95_downtime_days": 320.65747230284916,
+      "pfd_fire_protection_PPA": 0.024170384289320578
+    },
+    {
+      "scenario": "S5_weather_plus_equipment",
+      "title": "Extreme weather + equipment failure",
+      "initiating_event": "Severe storm (10-day median shut-in) during which a compressor train fails",
+      "annual_frequency": 0.008929600330912254,
+      "return_period_years": 111.98709493617834,
+      "mean_event_loss": 40371257.45895327,
+      "annual_eal": 71328944.07245132,
+      "annual_median": 55332379.79900149,
+      "annual_p95": 162038918.91471404,
+      "annual_p99": 336227207.94488657,
+      "annual_es99": 551979361.3434886,
+      "incremental_mean_loss": 48524447.225512266,
+      "mean_downtime_days": 39.99219992785774,
+      "p95_downtime_days": 85.90007702876612,
+      "pfd_fire_protection_PPA": 0.024170384289320578
+    },
+    {
+      "scenario": "S6_common_cause_power_failure",
+      "title": "Common-cause power failure",
+      "initiating_event": "Fuel-gas contamination trips all generators (common cause)",
+      "annual_frequency": 0.08215817663164586,
+      "return_period_years": 12.17164305487785,
+      "mean_event_loss": 10649712.766730852,
+      "annual_eal": 33454209.61366992,
+      "annual_median": 23776070.459134348,
+      "annual_p95": 80104577.12609479,
+      "annual_p99": 199155038.96918085,
+      "annual_es99": 376114392.01652604,
+      "incremental_mean_loss": 10649712.766730852,
+      "mean_downtime_days": 17.512211990432053,
+      "p95_downtime_days": 40.50323256204657,
+      "pfd_fire_protection_PPA": 0.05308146383520729
+    },
+    {
+      "scenario": "S7_high_price_prolonged_outage",
+      "title": "High commodity price + prolonged outage",
+      "initiating_event": "Major fire on PPA in a year with oil at 110 USD/bbl",
+      "annual_frequency": 0.002083901037710949,
+      "return_period_years": 479.8692365441908,
+      "mean_event_loss": 429872492.22747576,
+      "annual_eal": 472206329.7100042,
+      "annual_median": 396749892.37463063,
+      "annual_p95": 1070756780.0545499,
+      "annual_p99": 1560290069.5469055,
+      "annual_es99": 1785390166.941081,
+      "incremental_mean_loss": 449401832.8630652,
+      "mean_downtime_days": 167.00807177579105,
+      "p95_downtime_days": 401.86856986247517,
+      "pfd_fire_protection_PPA": 0.024170384289320578
+    }
+  ],
+  "mitigations": [
+    {
+      "mitigation": "critical_spares",
+      "capex_usd": 2500000.0,
+      "annualised_cost_usd": 472573.7217426883,
+      "reduction_eal": 2293288.4013455287,
+      "reduction_eal_se": 32784.26151605095,
+      "reduction_es99": 32068984.090882897,
+      "cost_per_usd_eal_reduction": 0.20606816023026922,
+      "benefit_cost_ratio": 4.852763274455199
+    },
+    {
+      "mitigation": "gas_detection_upgrade",
+      "capex_usd": 1500000.0,
+      "annualised_cost_usd": 205244.31740402998,
+      "reduction_eal": 1883316.6296996363,
+      "reduction_eal_se": 72690.23748886908,
+      "reduction_es99": 41419326.26492226,
+      "cost_per_usd_eal_reduction": 0.1089802501434736,
+      "benefit_cost_ratio": 9.175974533766349
+    },
+    {
+      "mitigation": "compressor_pm",
+      "capex_usd": 1200000.0,
+      "annualised_cost_usd": 500547.7454802037,
+      "reduction_eal": 1589717.4234109893,
+      "reduction_eal_se": 19943.564583587784,
+      "reduction_es99": 2325927.5799990296,
+      "cost_per_usd_eal_reduction": 0.3148658611328544,
+      "benefit_cost_ratio": 3.175955616153827
+    },
+    {
+      "mitigation": "inspection_programme",
+      "capex_usd": 800000.0,
+      "annualised_cost_usd": 450365.1636534691,
+      "reduction_eal": 850652.2758264281,
+      "reduction_eal_se": 51826.80354449763,
+      "reduction_es99": 15967323.15215528,
+      "cost_per_usd_eal_reduction": 0.5294350893447374,
+      "benefit_cost_ratio": 1.8888056725474387
+    },
+    {
+      "mitigation": "ptw_competence",
+      "capex_usd": 500000.0,
+      "annualised_cost_usd": 275228.2272834182,
+      "reduction_eal": 720375.9296010397,
+      "reduction_eal_se": 51288.537233264025,
+      "reduction_es99": 15759221.221530676,
+      "cost_per_usd_eal_reduction": 0.3820619429022923,
+      "benefit_cost_ratio": 2.617376628521564
+    },
+    {
+      "mitigation": "generator_redundancy",
+      "capex_usd": 3500000.0,
+      "annualised_cost_usd": 506482.73088102706,
+      "reduction_eal": 275145.00999895483,
+      "reduction_eal_se": 6891.98198881226,
+      "reduction_es99": 335741.47522097826,
+      "cost_per_usd_eal_reduction": 1.8407847225103264,
+      "benefit_cost_ratio": 0.5432465772729109
+    },
+    {
+      "mitigation": "deluge_coverage",
+      "capex_usd": 1800000.0,
+      "annualised_cost_usd": 250293.18088483598,
+      "reduction_eal": 104045.62590568885,
+      "reduction_eal_se": 41900.1161276147,
+      "reduction_es99": 8769149.710731506,
+      "cost_per_usd_eal_reduction": 2.4056098342059262,
+      "benefit_cost_ratio": 0.41569500830133266
+    },
+    {
+      "mitigation": "firewater_pump",
+      "capex_usd": 2200000.0,
+      "annualised_cost_usd": 274074.8594109313,
+      "reduction_eal": 94105.07918738574,
+      "reduction_eal_se": 41646.63655130911,
+      "reduction_es99": 8010005.679440558,
+      "cost_per_usd_eal_reduction": 2.9124342891756423,
+      "benefit_cost_ratio": 0.3433553861512349
+    },
+    {
+      "mitigation": "emergency_response",
+      "capex_usd": 600000.0,
+      "annualised_cost_usd": 189417.6932182452,
+      "reduction_eal": 10417.513632815331,
+      "reduction_eal_se": 7659.69791321451,
+      "reduction_es99": 934709.3806749582,
+      "cost_per_usd_eal_reduction": 18.18262014283106,
+      "benefit_cost_ratio": 0.05499757417493399
+    }
+  ],
+  "optimisation": {
+    "eal": {
+      "objective": "eal",
+      "budget": 5000000.0,
+      "selected": [
+        "inspection_programme",
+        "compressor_pm",
+        "critical_spares",
+        "ptw_competence"
+      ],
+      "capex": 5000000.0,
+      "predicted_value": 4833933.880160354,
+      "simulated_value": 4833933.8801603615,
+      "simulated_eal_reduction": 4833933.8801603615,
+      "simulated_es99_reduction": 63826152.95244485,
+      "annualised_cost": 1698714.8581597793,
+      "standalone_sum": 5472438.361177087
+    },
+    "es99": {
+      "objective": "es99",
+      "budget": 5000000.0,
+      "selected": [
+        "gas_detection_upgrade",
+        "critical_spares",
+        "ptw_competence"
+      ],
+      "capex": 4500000.0,
+      "predicted_value": 96426991.80605602,
+      "simulated_value": 95594962.29540691,
+      "simulated_eal_reduction": 4734503.934599247,
+      "simulated_es99_reduction": 95594962.29540691,
+      "annualised_cost": 953046.2664301365,
+      "standalone_sum": 90447033.40431511
+    },
+    "net_benefit": {
+      "objective": "net_benefit",
+      "budget": 5000000.0,
+      "selected": [
+        "gas_detection_upgrade",
+        "critical_spares",
+        "ptw_competence"
+      ],
+      "capex": 4500000.0,
+      "predicted_value": 3781457.66816911,
+      "simulated_value": 3781457.66816911,
+      "simulated_eal_reduction": 4734503.934599247,
+      "simulated_es99_reduction": 95594962.29540691,
+      "annualised_cost": 953046.2664301365,
+      "standalone_sum": 3942182.5311800907
+    }
+  }
+}

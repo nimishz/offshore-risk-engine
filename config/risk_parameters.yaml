@@ -1,0 +1,587 @@
+# Risk parameters for the fictional complex.
+#
+# EVERY value in this file is an assumption for a hypothetical asset.
+# `basis` says what kind of assumption it is:
+#   assumption            - analyst judgement for this fictional asset
+#   order_of_magnitude    - chosen to sit in the general range reported by the kind of
+#                           public source named in `rationale`; the number itself is NOT
+#                           taken from that source and must not be cited as if it were
+#   engineering_convention- a standard modelling choice (e.g. annual proof testing)
+#   derived               - computed from other parameters
+#   synthetic_calibrated  - prior later updated with the synthetic records (see bayesian)
+#
+# Distribution types (see src/offshore_risk/distributions.py):
+#   fixed{value} | uniform{low,high} | triangular{low,mode,high} | pert{low,mode,high}
+#   lognormal{median, ef}  (ef = error factor = P95/P50)
+#   beta{mean, n} (n = prior pseudo-observations, a = mean*n, b = (1-mean)*n) | beta{a,b}
+#
+# `uncertainty: epistemic` parameters are sampled once per simulated "world".
+# Aleatory variability (per event / per year) is defined in the `aleatory` block.
+
+epistemic:
+
+  # ---------------------------------------------------------------- releases
+  rel_valve_rate:
+    definition: Hydrocarbon release frequency from valve leaks (stem, body, gland)
+    unit: per platform-year (equipment factor 1.0)
+    category: process_safety/loss_of_containment
+    distribution: {type: lognormal, median: 0.08, ef: 3}
+    basis: order_of_magnitude
+    rationale: >-
+      Total release frequencies of order 0.1-1 per installation-year (all sizes) appear in
+      public offshore release statistics (e.g. UK HSE hydrocarbon release reporting, IOGP
+      Risk Assessment Data Directory). The split by cause is an assumption.
+  rel_flange_seal_rate:
+    definition: Release frequency from flanges, seals and small-bore fittings
+    unit: per platform-year
+    category: process_safety/loss_of_containment
+    distribution: {type: lognormal, median: 0.10, ef: 3}
+    basis: order_of_magnitude
+    rationale: Flanges and small-bore connections are typically the most numerous leak sources; given the largest share (assumption).
+  rel_corrosion_rate:
+    definition: Release frequency from pipework corrosion/erosion at nominal inspection effectiveness
+    unit: per platform-year
+    category: process_safety/loss_of_containment
+    distribution: {type: lognormal, median: 0.05, ef: 3}
+    basis: assumption
+    rationale: Smaller share than mechanical joints; sensitive to inspection programme (see inspection mitigation).
+  ptw_jobs_per_year:
+    definition: Breaking-containment jobs under permit-to-work per platform-year
+    unit: jobs per platform-year
+    category: human_operational/permit_to_work
+    distribution: {type: fixed, value: 150}
+    basis: assumption
+    rationale: Roughly three per week per processing platform (assumption).
+  ptw_isolation_failure_prob:
+    definition: Probability a breaking-containment job has an isolation/PTW failure (wrong isolation, not proven, procedural deviation)
+    unit: probability per job
+    category: human_operational/maintenance_error
+    distribution: {type: beta, mean: 0.002, n: 500}
+    basis: assumption
+    rationale: Order 1e-3 per task is a common human-error screening value for procedural steps with checks; wide prior.
+  p_release_given_ptw_failure:
+    definition: Probability an isolation failure results in a hydrocarbon release
+    unit: probability
+    category: human_operational/maintenance_error
+    distribution: {type: triangular, low: 0.1, mode: 0.3, high: 0.5}
+    basis: assumption
+    rationale: Many isolation errors are caught at pressure test or bleed-down before a release.
+  overpressure_demand_rate:
+    definition: Rate of process upsets demanding pressure protection
+    unit: per platform-year
+    category: process_safety/overpressure
+    distribution: {type: lognormal, median: 0.5, ef: 3}
+    basis: assumption
+    rationale: Blocked outlets, control-valve failures; assumption.
+  psv_pfd:
+    definition: Probability pressure protection (PSV/HIPPS) fails on demand, leading to loss of containment
+    unit: probability per demand
+    category: process_safety/overpressure
+    distribution: {type: lognormal, median: 0.01, ef: 3}
+    basis: assumption
+    rationale: Treated as a single protection layer of roughly SIL 2 equivalent (assumption).
+  p_large_release:
+    definition: Fraction of releases that are large (> ~10 kg/s)
+    unit: probability
+    category: process_safety/release_size
+    distribution: {type: beta, a: 2, b: 38}
+    basis: order_of_magnitude
+    rationale: Public release statistics are dominated by small releases; a few percent are major (assumption within that pattern).
+  p_medium_release:
+    definition: Fraction of releases that are medium (~1-10 kg/s)
+    unit: probability
+    category: process_safety/release_size
+    distribution: {type: fixed, value: 0.25}
+    basis: assumption
+    rationale: Remainder after large are small.
+
+  # ----------------------------------------------------- detection / isolation
+  gd_coverage_small:
+    definition: Probability a small release reaches enough gas detectors to trigger (geometric coverage)
+    unit: probability
+    category: fire_protection/gas_detection
+    distribution: {type: triangular, low: 0.40, mode: 0.60, high: 0.75}
+    basis: assumption
+    rationale: Small releases often dilute below detector thresholds; coverage, not hardware, usually limits detection.
+  gd_coverage_medium:
+    definition: Gas detection coverage for medium releases
+    unit: probability
+    category: fire_protection/gas_detection
+    distribution: {type: triangular, low: 0.75, mode: 0.85, high: 0.93}
+    basis: assumption
+    rationale: Assumption.
+  gd_coverage_large:
+    definition: Gas detection coverage for large releases
+    unit: probability
+    category: fire_protection/gas_detection
+    distribution: {type: triangular, low: 0.90, mode: 0.95, high: 0.99}
+    basis: assumption
+    rationale: Large clouds nearly always reach several detectors.
+  gd_lambda_du:
+    definition: Dangerous-undetected failure rate of a point gas detector
+    unit: per hour
+    category: fire_protection/gas_detection
+    distribution: {type: lognormal, median: 1.5e-6, ef: 3}
+    basis: order_of_magnitude
+    rationale: Order 1e-6/h is typical of the range in reliability handbooks such as OREDA; value is an assumption.
+  gd_beta:
+    definition: Beta-factor for common-cause failure of gas detectors in one zone
+    unit: fraction
+    category: fire_protection/gas_detection
+    distribution: {type: triangular, low: 0.02, mode: 0.05, high: 0.10}
+    basis: engineering_convention
+    rationale: Beta factors of 1-10 % are the usual range in beta-factor CCF modelling (e.g. IEC 61508-6 Annex D scheme).
+  fd_lambda_du:
+    definition: Dangerous-undetected failure rate of a flame detector
+    unit: per hour
+    category: fire_protection/fire_detection
+    distribution: {type: lognormal, median: 2.0e-6, ef: 3}
+    basis: order_of_magnitude
+    rationale: As gas detectors.
+  fd_beta:
+    definition: Beta-factor for flame detectors in one zone
+    unit: fraction
+    category: fire_protection/fire_detection
+    distribution: {type: triangular, low: 0.02, mode: 0.05, high: 0.10}
+    basis: engineering_convention
+    rationale: As gas detectors.
+  logic_solver_pfd:
+    definition: PFD of the fire & gas / ESD logic solver
+    unit: probability per demand
+    category: fire_protection/esd
+    distribution: {type: fixed, value: 1.0e-4}
+    basis: assumption
+    rationale: Certified safety PLC; small compared with field devices.
+  esd_lambda_du:
+    definition: Dangerous-undetected failure rate of an ESD valve (fail to close)
+    unit: per hour
+    category: fire_protection/esd
+    distribution: {type: lognormal, median: 2.5e-6, ef: 3}
+    basis: order_of_magnitude
+    rationale: Order 1e-6/h for actuated valves; assumption.
+  esd_beta:
+    definition: Beta-factor for common-cause failure of the two ESD valves
+    unit: fraction
+    category: fire_protection/esd
+    distribution: {type: triangular, low: 0.05, mode: 0.10, high: 0.15}
+    basis: engineering_convention
+    rationale: Identical valves, same fluid and maintenance crew -> upper part of the usual range.
+  proof_test_interval_h:
+    definition: Proof-test interval for detectors, ESD valves and deluge valves
+    unit: hours
+    category: fire_protection/testing
+    distribution: {type: fixed, value: 8760}
+    basis: engineering_convention
+    rationale: Annual full proof test (assumption).
+  p_manual_activation_fail:
+    definition: Probability operators fail to activate deluge manually when automatic fire detection fails
+    unit: probability
+    category: fire_protection/fire_detection
+    distribution: {type: triangular, low: 0.10, mode: 0.30, high: 0.50}
+    basis: assumption
+    rationale: Manual activation under stress with delayed awareness; judgement.
+  deluge_lambda_du:
+    definition: Dangerous-undetected failure rate of a deluge valve set (fail to open / blocked nozzles)
+    unit: per hour
+    category: fire_protection/deluge
+    distribution: {type: lognormal, median: 3.0e-6, ef: 3}
+    basis: assumption
+    rationale: Deluge valve tests commonly reveal failures; assumption.
+  fw_elec_pump_fts:
+    definition: Probability an electric-motor firewater pump fails to start on demand
+    unit: probability per demand
+    category: fire_protection/firewater
+    distribution: {type: beta, mean: 0.01, n: 100}
+    basis: synthetic_calibrated
+    rationale: Generic prior; optionally replaced by the Beta posterior from synthetic weekly start tests.
+  fw_diesel_pump_fts:
+    definition: Probability the diesel-driven standby firewater pump fails to start on demand
+    unit: probability per demand
+    category: fire_protection/firewater
+    distribution: {type: beta, mean: 0.02, n: 50}
+    basis: synthetic_calibrated
+    rationale: Diesel drivers are generally less reliable to start than electric motors; generic prior updated with synthetic tests.
+  fw_pump_maint_unavail:
+    definition: Fraction of time a firewater pump is out of service for maintenance
+    unit: fraction of time
+    category: fire_protection/firewater
+    distribution: {type: triangular, low: 0.01, mode: 0.02, high: 0.05}
+    basis: assumption
+    rationale: About one week per year per pump.
+  fw_pump_ftr_per_h:
+    definition: Firewater pump fail-to-run rate during a fire
+    unit: per hour
+    category: fire_protection/firewater
+    distribution: {type: lognormal, median: 5.0e-5, ef: 3}
+    basis: assumption
+    rationale: Combined with a 6 h mission time.
+  fw_mission_time_h:
+    definition: Required firewater run time during a fire
+    unit: hours
+    category: fire_protection/firewater
+    distribution: {type: fixed, value: 6}
+    basis: assumption
+    rationale: Duration of a sustained fire until inventory is blown down and fire is out.
+  fw_elec_ccf_beta:
+    definition: Beta-factor for common-cause failure to start of the two electric firewater pumps
+    unit: fraction
+    category: fire_protection/firewater
+    distribution: {type: triangular, low: 0.05, mode: 0.10, high: 0.20}
+    basis: engineering_convention
+    rationale: Same room, same switchboard, same maintenance -> high beta.
+  fw_header_fail:
+    definition: Probability the firewater ring main/header cannot deliver (impaired section, blockage, closed isolation valve)
+    unit: probability per demand
+    category: fire_protection/firewater
+    distribution: {type: lognormal, median: 2.0e-3, ef: 5}
+    basis: assumption
+    rationale: Single series element for all pumps; very uncertain.
+
+  # ------------------------------------------------------ ignition / explosion
+  p_ign_small:
+    definition: Ignition probability of a small, unisolated release
+    unit: probability
+    category: process_safety/ignition
+    distribution: {type: triangular, low: 0.005, mode: 0.01, high: 0.02}
+    basis: order_of_magnitude
+    rationale: Ignition probability rises with release rate; published ignition models (e.g. IOGP RADD ignition data) give values of order 1 % for small and 10 %+ for large releases.
+  p_ign_medium:
+    definition: Ignition probability of a medium, unisolated release
+    unit: probability
+    category: process_safety/ignition
+    distribution: {type: triangular, low: 0.02, mode: 0.04, high: 0.08}
+    basis: order_of_magnitude
+    rationale: See p_ign_small.
+  p_ign_large:
+    definition: Ignition probability of a large, unisolated release
+    unit: probability
+    category: process_safety/ignition
+    distribution: {type: triangular, low: 0.06, mode: 0.12, high: 0.25}
+    basis: order_of_magnitude
+    rationale: See p_ign_small.
+  ign_isolation_factor:
+    definition: Multiplier on ignition probability when the release is isolated (shorter duration, smaller cloud)
+    unit: multiplier
+    category: process_safety/ignition
+    distribution: {type: triangular, low: 0.3, mode: 0.5, high: 0.7}
+    basis: assumption
+    rationale: Judgement.
+  p_exp_small:
+    definition: Probability an ignited small gas release leads to an explosion (delayed ignition in congestion)
+    unit: probability
+    category: process_safety/explosion
+    distribution: {type: triangular, low: 0.01, mode: 0.02, high: 0.05}
+    basis: assumption
+    rationale: Small clouds rarely reach congested volumes of significance.
+  p_exp_medium:
+    definition: Explosion probability given ignition, medium gas release
+    unit: probability
+    category: process_safety/explosion
+    distribution: {type: triangular, low: 0.08, mode: 0.15, high: 0.25}
+    basis: assumption
+    rationale: Judgement.
+  p_exp_large:
+    definition: Explosion probability given ignition, large gas release
+    unit: probability
+    category: process_safety/explosion
+    distribution: {type: triangular, low: 0.15, mode: 0.30, high: 0.45}
+    basis: assumption
+    rationale: Judgement.
+  liquid_explosion_factor:
+    definition: Multiplier on explosion probability for liquid (two-phase / oil) releases
+    unit: multiplier
+    category: process_safety/explosion
+    distribution: {type: fixed, value: 0.2}
+    basis: assumption
+    rationale: Liquid releases mainly give pool fires; flashing fraction can still explode.
+
+  # ------------------------------------------------ escalation / emergency response
+  p_er_delayed:
+    definition: Probability the emergency response to a fire/explosion is materially delayed
+    unit: probability
+    category: human_operational/emergency_response
+    distribution: {type: triangular, low: 0.10, mode: 0.20, high: 0.35}
+    basis: assumption
+    rationale: Judgement (night shift, muster issues, communication failure).
+  er_delay_escalation_multiplier:
+    definition: Multiplier on escalation probability when response is delayed
+    unit: multiplier
+    category: human_operational/emergency_response
+    distribution: {type: triangular, low: 1.5, mode: 2.0, high: 3.0}
+    basis: assumption
+    rationale: Judgement.
+  esc_major_fire:
+    definition: Probability a major fire escalates across one bridge to an adjacent platform
+    unit: probability per adjacent platform
+    category: process_safety/escalation
+    distribution: {type: triangular, low: 0.02, mode: 0.05, high: 0.10}
+    basis: assumption
+    rationale: Bridges provide separation distance; escalation requires prolonged impingement.
+  esc_explosion:
+    definition: Probability an explosion escalates to an adjacent platform
+    unit: probability per adjacent platform
+    category: process_safety/escalation
+    distribution: {type: triangular, low: 0.05, mode: 0.12, high: 0.25}
+    basis: assumption
+    rationale: Judgement.
+  esc_catastrophic:
+    definition: Probability a catastrophic event escalates to an adjacent platform
+    unit: probability per adjacent platform
+    category: process_safety/escalation
+    distribution: {type: triangular, low: 0.20, mode: 0.35, high: 0.50}
+    basis: assumption
+    rationale: Judgement.
+
+  # ----------------------------------------------------------------- mechanical
+  comp_weibull_shape:
+    definition: Weibull (power-law NHPP) shape parameter for compressor train failures
+    unit: dimensionless
+    category: mechanical/compressor
+    distribution: {type: triangular, low: 1.2, mode: 1.6, high: 2.2}
+    basis: assumption
+    rationale: Shape > 1 represents wear-out between overhauls.
+  comp_weibull_scale_years:
+    definition: Weibull scale (years since overhaul at which expected cumulative failures = 1)
+    unit: years
+    category: mechanical/compressor
+    distribution: {type: triangular, low: 2.5, mode: 3.5, high: 5.0}
+    basis: synthetic_calibrated
+    rationale: Gives roughly 0.3-0.5 failures per train-year at mid-cycle.
+  comp_age_years:
+    definition: Age of compressor trains since last major overhaul at the start of the year
+    unit: years
+    category: mechanical/compressor
+    distribution: {type: fixed, value: 2.0}
+    basis: assumption
+    rationale: Mid-way through a ~4 year overhaul cycle.
+  comp_production_impact:
+    definition: Fraction of complex production lost while one compressor train is down
+    unit: fraction
+    category: mechanical/compressor
+    distribution: {type: triangular, low: 0.25, mode: 0.40, high: 0.50}
+    basis: assumption
+    rationale: Gas handling constraint forces choke-back (flaring limits).
+  comp_repair_days:
+    definition: Median repair duration of a compressor failure
+    unit: days
+    category: mechanical/compressor
+    distribution: {type: triangular, low: 3, mode: 7, high: 14}
+    basis: assumption
+    rationale: Depends on spares availability.
+  gen_lambda_per_h:
+    definition: Failure/trip rate of one gas-turbine generator
+    unit: per hour
+    category: mechanical/generator
+    distribution: {type: lognormal, median: 1.5e-4, ef: 2}
+    basis: order_of_magnitude
+    rationale: Of order one forced outage per machine-year including trips; assumption.
+  gen_mttr_h:
+    definition: Mean time to restore a failed generator
+    unit: hours
+    category: mechanical/generator
+    distribution: {type: triangular, low: 8, mode: 24, high: 72}
+    basis: assumption
+    rationale: Most trips are restarted in hours; some need parts.
+  gen_ccf_beta:
+    definition: Beta-factor for common-cause loss of all generators (fuel gas, control system, switchboard)
+    unit: fraction
+    category: mechanical/generator
+    distribution: {type: triangular, low: 0.02, mode: 0.05, high: 0.10}
+    basis: engineering_convention
+    rationale: Shared fuel gas and switchboard.
+  power_restart_days:
+    definition: Median time to restore production after a total power loss
+    unit: days
+    category: mechanical/generator
+    distribution: {type: triangular, low: 1, mode: 2, high: 4}
+    basis: assumption
+    rationale: Black start, restart sequence.
+  pipeline_rate_per_km_yr:
+    definition: Export pipeline loss-of-containment frequency
+    unit: per km-year
+    category: mechanical/pipeline
+    distribution: {type: lognormal, median: 5.0e-4, ef: 3}
+    basis: order_of_magnitude
+    rationale: Order 1e-4 to 1e-3 per km-year is the range suggested by public pipeline loss-of-containment compilations (e.g. PARLOC-type studies); value is an assumption.
+  pipeline_repair_days:
+    definition: Median outage duration for an export pipeline repair
+    unit: days
+    category: mechanical/pipeline
+    distribution: {type: triangular, low: 20, mode: 45, high: 90}
+    basis: assumption
+    rationale: Mobilising a repair spread and clamp.
+  pipeline_repair_cost_usd:
+    definition: Median direct repair cost of a pipeline failure
+    unit: USD
+    category: mechanical/pipeline
+    distribution: {type: triangular, low: 4.0e+6, mode: 8.0e+6, high: 15.0e+6}
+    basis: assumption
+    rationale: Vessel spread and repair clamp.
+  spurious_trip_rate:
+    definition: Rate of spurious platform trips (instrument failures, procedural deviations)
+    unit: per complex-year
+    category: mechanical/instrumentation
+    distribution: {type: lognormal, median: 3.0, ef: 2}
+    basis: assumption
+    rationale: Several unplanned trips per year across the complex is typical of mature assets (judgement).
+
+  # ------------------------------------------------------------------- external
+  weather_rate:
+    definition: Rate of extreme weather events requiring precautionary shut-in and de-manning
+    unit: per year
+    category: external/weather
+    distribution: {type: lognormal, median: 0.4, ef: 2}
+    basis: assumption
+    rationale: Fictional basin with a cyclone season.
+  weather_damage_prob:
+    definition: Probability an extreme weather event causes structural/topsides damage
+    unit: probability per event
+    category: external/weather
+    distribution: {type: triangular, low: 0.02, mode: 0.05, high: 0.10}
+    basis: assumption
+    rationale: Judgement.
+  collision_rate:
+    definition: Rate of significant vessel impacts on the complex
+    unit: per year
+    category: external/marine_collision
+    distribution: {type: lognormal, median: 0.01, ef: 3}
+    basis: assumption
+    rationale: Mostly attendant/supply vessel impacts.
+  p_riser_rupture_given_collision:
+    definition: Probability a collision ruptures a riser, giving a large hydrocarbon release on WHP
+    unit: probability
+    category: external/marine_collision
+    distribution: {type: triangular, low: 0.05, mode: 0.10, high: 0.20}
+    basis: assumption
+    rationale: Riser guards reduce but do not remove this.
+
+  # ----------------------------------------------------- consequence scales
+  dt_minor_fire_days:
+    definition: Median platform downtime after a minor (controlled) fire
+    unit: days
+    category: consequence/downtime
+    distribution: {type: triangular, low: 7, mode: 14, high: 30}
+    basis: assumption
+    rationale: Investigation, repair of local damage.
+  dt_major_fire_days:
+    definition: Median platform downtime after a major fire
+    unit: days
+    category: consequence/downtime
+    distribution: {type: triangular, low: 45, mode: 90, high: 180}
+    basis: assumption
+    rationale: Replacement of damaged modules, cabling, structural checks.
+  dt_explosion_days:
+    definition: Median platform downtime after an explosion
+    unit: days
+    category: consequence/downtime
+    distribution: {type: triangular, low: 90, mode: 150, high: 270}
+    basis: assumption
+    rationale: Blast damage to structure and equipment.
+  dt_catastrophic_days:
+    definition: Median platform downtime after a catastrophic event
+    unit: days
+    category: consequence/downtime
+    distribution: {type: triangular, low: 270, mode: 365, high: 600}
+    basis: assumption
+    rationale: Major rebuild.
+  dt_escalated_days:
+    definition: Median downtime of a platform damaged by escalation from a neighbour
+    unit: days
+    category: consequence/downtime
+    distribution: {type: triangular, low: 30, mode: 60, high: 120}
+    basis: assumption
+    rationale: Judgement.
+  dmg_major_fire:
+    definition: Mean damage fraction (of platform replacement value) for a major fire
+    unit: fraction
+    category: consequence/damage
+    distribution: {type: triangular, low: 0.03, mode: 0.06, high: 0.12}
+    basis: assumption
+    rationale: Judgement.
+  dmg_explosion:
+    definition: Mean damage fraction for an explosion
+    unit: fraction
+    category: consequence/damage
+    distribution: {type: triangular, low: 0.06, mode: 0.12, high: 0.25}
+    basis: assumption
+    rationale: Judgement.
+  dmg_catastrophic:
+    definition: Mean damage fraction for a catastrophic event
+    unit: fraction
+    category: consequence/damage
+    distribution: {type: triangular, low: 0.25, mode: 0.45, high: 0.70}
+    basis: assumption
+    rationale: Judgement.
+
+  # ------------------------------------------------------------------ economics
+  bi_value_fraction:
+    definition: Economic loss per deferred barrel as a fraction of the oil price
+    unit: fraction
+    category: financial/business_interruption
+    distribution: {type: triangular, low: 0.30, mode: 0.50, high: 0.80}
+    basis: assumption
+    rationale: Deferred production is partly recovered later; bundles time value, permanent loss and avoided variable cost.
+  production_rate_factor:
+    definition: Actual production relative to nominal platform capacity
+    unit: multiplier
+    category: financial/production
+    distribution: {type: triangular, low: 0.85, mode: 1.00, high: 1.10}
+    basis: assumption
+    rationale: Reservoir performance uncertainty over the year.
+
+# Aleatory, per-event distributions. Medians given here as fixed numbers are
+# assumptions; those referenced by name come from the epistemic block.
+aleatory:
+  downtime_sigma: 0.6            # lognormal log-sd for per-event downtime around its median
+  damage_beta_concentration: 8   # Beta(a,b) with a+b = 8 around the damage-fraction mean
+  outcomes:
+    controlled_release:   {downtime_days: 1.5, complex_shutdown_days: 0.0, damage_fraction: 0.0,   er_cost_usd: 2.0e+4}
+    uncontrolled_release: {downtime_days: 5.0, complex_shutdown_days: 1.0, damage_fraction: 0.0,   er_cost_usd: 1.5e+5}
+    minor_fire:           {downtime_days: dt_minor_fire_days,   complex_shutdown_days: 1.0,  damage_fraction: 0.005, er_cost_usd: 3.0e+5}
+    major_fire:           {downtime_days: dt_major_fire_days,   complex_shutdown_days: 7.0,  damage_fraction: dmg_major_fire,   er_cost_usd: 2.0e+6}
+    explosion:            {downtime_days: dt_explosion_days,    complex_shutdown_days: 14.0, damage_fraction: dmg_explosion,    er_cost_usd: 4.0e+6}
+    catastrophic:         {downtime_days: dt_catastrophic_days, complex_shutdown_days: 30.0, damage_fraction: dmg_catastrophic, er_cost_usd: 1.5e+7}
+  escalated_damage_fraction: 0.04
+  max_event_downtime_days: 730
+  liquid_spill_bbl_median: {small: 1.0, medium: 20.0, large: 300.0}
+  liquid_spill_unisolated_multiplier: 5.0
+  compressor_repair_cost_usd_median: 8.0e+5
+  trip_downtime_hours_median: 8.0
+  trip_platforms: [PPA, PPB, WHP, UCP]   # a trip takes one of these down
+  weather_shutin_days_median: 3.0
+  weather_damage_usd_median: 3.0e+6
+  collision_downtime_days_median: 10.0
+  collision_damage_usd_median: 4.0e+6
+  collision_targets: {WHP: 0.4, PPA: 0.2, PPB: 0.2, SWI: 0.2}
+  pipeline_spill_bbl_median: 200.0
+  cost_sigma: 0.8                # lognormal log-sd for per-event repair/damage costs given as medians
+
+# Year-level drivers (aleatory). Lognormal marginals with mean 1.
+drivers:
+  names: [weather, logistics, integrity]
+  sigma: {weather: 0.5, logistics: 0.25, integrity: 0.3}
+  # Model B correlation of the underlying normals (Gaussian copula). ASSUMPTION:
+  # severe seasons delay logistics and grow maintenance backlogs.
+  correlation:
+    - [1.0, 0.6, 0.3]
+    - [0.6, 1.0, 0.4]
+    - [0.3, 0.4, 1.0]
+  # which driver multiplies which event source's frequency (logistics multiplies durations)
+  frequency_driver:
+    release: integrity
+    compressor: integrity
+    power_loss: integrity
+    pipeline: integrity
+    spurious_trip: integrity
+    weather: weather
+    collision: weather
+
+financial:
+  oil_price: {type: lognormal, median: 75.0, sigma: 0.25}   # USD/bbl, annual average (aleatory); assumption, not a forecast
+  logistics_day_rate_usd: 6.0e+4     # vessel + helicopter support during repair campaigns
+  restart_cost_usd: 1.5e+5           # per platform shutdown (flaring, restart crew)
+  evacuation_cost_usd: 3.0e+6        # full/precautionary evacuation of the complex
+  weather_demanning_cost_usd: 4.0e+5 # precautionary de-manning and re-manning
+  # SCENARIO ASSUMPTION ONLY. Not a regulatory penalty estimate. 0 = excluded from totals.
+  env_cost_per_bbl_scenario_usd: 0.0
+  discount_rate: 0.08               # for annualising mitigation capital cost

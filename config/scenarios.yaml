@@ -1,0 +1,86 @@
+# Stress scenarios. Each is CONDITIONAL: "given that this happens (in a year that
+# is otherwise simulated normally), what is the loss distribution?"
+# `forced_events` are added to every simulated year; `overrides` change epistemic
+# parameters (op: set | multiply); `architecture` changes protection-system structure.
+# Probabilities are reported as the model's annual frequency of the initiating
+# event where that is well defined (method in `frequency`), otherwise as a
+# described state probability.
+
+scenarios:
+  S1_single_equipment_failure:
+    title: Single equipment failure
+    initiating_event: One compressor train fails (wear-out failure between overhauls)
+    assumptions:
+      - Second train keeps running; production is choked back by the compression constraint
+      - Repair duration and cost as in the base model (spares not pre-positioned)
+    forced_events:
+      - {type: compressor}
+    frequency: compressor
+
+  S2_firewater_degradation:
+    title: Firewater system degradation
+    initiating_event: One electric firewater pump out of service for the year and the diesel pump in poor condition
+    assumptions:
+      - Only one electric pump available (architecture 1 instead of 2)
+      - Diesel pump fail-to-start probability three times the base value
+      - No other change; the scenario is a degraded state, not an event
+    architecture: {electric_firewater_pumps: 1}
+    overrides:
+      fw_diesel_pump_fts: {op: multiply, value: 3.0}
+    frequency: state
+
+  S3_major_hydrocarbon_release:
+    title: Major hydrocarbon release
+    initiating_event: Large gas release on Production Platform A
+    assumptions:
+      - Outcome follows the event tree (detection, isolation, ignition, fire protection)
+      - Escalation to WHP / PPB possible as in the base model
+    forced_events:
+      - {type: release, platform: PPA, size: large, phase: gas}
+    frequency: release_PPA_large_gas
+
+  S4_multi_platform_shutdown:
+    title: Multi-platform shutdown
+    initiating_event: Explosion on PPB that escalates to PPA and UCP
+    assumptions:
+      - Outcome fixed to 'explosion' on PPB with escalation to both PPA and UCP
+      - UCP damage takes out main power, so all production stops (dependency model)
+    forced_events:
+      - {type: release, platform: PPB, size: large, phase: gas, outcome: explosion, escalate_to: [PPA, UCP]}
+    frequency: explosion_PPB_escalating_PPA_UCP
+
+  S5_weather_plus_equipment:
+    title: Extreme weather + equipment failure
+    initiating_event: Severe storm (10-day median shut-in) during which a compressor train fails
+    assumptions:
+      - Storm shut-in median 10 days instead of 3
+      - Compressor failure on restart; repairs delayed by logistics (factor 1.5)
+      - Logistics factor also applies to all other repairs in the year
+    forced_events:
+      - {type: weather, shutin_days_median: 10.0, damage: false}
+      - {type: compressor}
+    logistics_multiplier: 1.5
+    frequency: weather_and_compressor
+
+  S6_common_cause_power_failure:
+    title: Common-cause power failure
+    initiating_event: Fuel-gas contamination trips all generators (common cause)
+    assumptions:
+      - Complex-wide blackout; restart takes a median of 5 days (contamination clean-up)
+      - During the blackout fire protection relies on the diesel pump (reported as PFD with power lost)
+    forced_events:
+      - {type: power_loss, restart_days_median: 5.0}
+    frequency: power_ccf
+
+  S7_high_price_prolonged_outage:
+    title: High commodity price + prolonged outage
+    initiating_event: Major fire on PPA in a year with oil at 110 USD/bbl
+    assumptions:
+      - Oil price fixed at 110 USD/bbl (about the 94th percentile of the price assumption)
+      - Outcome fixed to 'major_fire' on PPA
+      - Logistics factor 1.5 (repair delayed)
+    forced_events:
+      - {type: release, platform: PPA, size: large, phase: liquid, outcome: major_fire}
+    price_override: 110.0
+    logistics_multiplier: 1.5
+    frequency: major_fire_PPA

@@ -1,0 +1,91 @@
+# Fictional bridge-linked offshore production complex.
+# All values are ASSUMPTIONS for a hypothetical asset. They do not describe any
+# real facility or operator.
+
+complex_name: "Fictional Complex 'Meridian'"
+
+platforms:
+  WHP:
+    name: Wellhead Platform
+    replacement_value_usd: 350.0e+6
+    production_bopd: 0          # wells are credited to the processing platforms
+    release_equipment_factor: 0.5   # relative count of leak sources vs PPA (assumption)
+    p_power_loss_given_fire: 0.10   # conditional P(main power lost | fire here)
+    gas_release_fraction: 0.5
+  PPA:
+    name: Production Platform A
+    replacement_value_usd: 900.0e+6
+    production_bopd: 22000
+    release_equipment_factor: 1.0
+    p_power_loss_given_fire: 0.10
+    gas_release_fraction: 0.6
+  PPB:
+    name: Production Platform B
+    replacement_value_usd: 800.0e+6
+    production_bopd: 18000
+    release_equipment_factor: 0.9
+    p_power_loss_given_fire: 0.10
+    gas_release_fraction: 0.6
+  UCP:
+    name: Utility / Compression Platform
+    replacement_value_usd: 600.0e+6
+    production_bopd: 0
+    release_equipment_factor: 0.7   # gas compression trains and fuel gas
+    p_power_loss_given_fire: 0.60   # generators and switchgear are here
+    gas_release_fraction: 0.95
+  LQ:
+    name: Living Quarters Platform
+    replacement_value_usd: 250.0e+6
+    production_bopd: 0
+    release_equipment_factor: 0.0   # no process inventory
+    p_power_loss_given_fire: 0.05
+    gas_release_fraction: 0.0
+  SWI:
+    name: Support / Water Injection Platform
+    replacement_value_usd: 300.0e+6
+    production_bopd: 0
+    release_equipment_factor: 0.0   # water service; no hydrocarbon inventory modelled
+    p_power_loss_given_fire: 0.05
+    gas_release_fraction: 0.0
+
+# Bridges: physical adjacency used for fire/explosion escalation.
+bridges:
+  - [WHP, PPA]
+  - [PPA, PPB]
+  - [PPB, UCP]
+  - [UCP, LQ]
+  - [UCP, SWI]
+
+# Functional dependencies: "platform depends on provider; if the provider is
+# unavailable the platform loses `impact` of its capability".
+# Evaluated in topological order, so dependencies propagate (UCP -> WHP -> PPA).
+dependencies:
+  - {platform: WHP, provider: UCP, service: main power,           impact: 1.0}
+  - {platform: PPA, provider: UCP, service: main power,           impact: 1.0}
+  - {platform: PPB, provider: UCP, service: main power,           impact: 1.0}
+  - {platform: PPA, provider: WHP, service: well fluids (60 % of feed), impact: 0.6}
+  - {platform: PPB, provider: WHP, service: well fluids (60 % of feed), impact: 0.6}
+  - {platform: PPB, provider: PPA, service: export metering / pipeline launcher, impact: 0.5}
+  - {platform: PPA, provider: SWI, service: water injection (pressure support), impact: 0.15}
+  - {platform: PPB, provider: SWI, service: water injection (pressure support), impact: 0.15}
+  - {platform: PPA, provider: LQ,  service: manning / accommodation, impact: 0.9}
+  - {platform: PPB, provider: LQ,  service: manning / accommodation, impact: 0.9}
+
+# Protection-system architecture (used to build the fault trees).
+protection:
+  electric_firewater_pumps: 2      # on UCP, main-power dependent
+  diesel_firewater_pumps: 1        # on SWI, independent of main power
+  gas_detectors_per_zone: 3        # voting 2oo3
+  gas_detection_voting_k: 2
+  flame_detectors_per_zone: 3      # voting 2oo3
+  flame_detection_voting_k: 2
+  esd_valves_in_series: 2          # 1oo2: either valve closing isolates
+  generators_installed: 3          # 3 x 50 % gas turbine generators
+  generators_required: 2
+  compressors_installed: 2         # 2 x 50 % trains on UCP
+
+pipeline:
+  export_length_km: 30
+
+operations:
+  hours_per_year: 8760

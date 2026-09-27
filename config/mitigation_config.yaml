@@ -1,0 +1,117 @@
+# Candidate risk controls. Costs, lives and effectiveness ranges are ASSUMPTIONS
+# for the fictional asset, chosen to be of plausible relative magnitude.
+#
+# Effect operations on an epistemic parameter x, with sampled effectiveness e
+# (scaled by `weight`, default 1):
+#   reduce     x <- x * (1 - e)          e.g. fewer corrosion releases
+#   increase   x <- x * (1 + e)          e.g. longer characteristic life
+#   close_gap  x <- x + e * (1 - x)      e.g. detection coverage moves towards 1
+# `architecture` changes a structural item of the protection system (certain).
+
+budget_usd: 5.0e+6
+
+mitigations:
+  firewater_pump:
+    name: Additional diesel firewater pump
+    description: Second 100 % diesel-driven pump on SWI, independent of main power.
+    capex_usd: 2.2e+6
+    opex_usd_per_year: 5.0e+4
+    life_years: 20
+    architecture: {diesel_firewater_pumps: 2}
+    effectiveness: {type: fixed, value: 1.0}
+    effects: []
+    rationale: Removes the single diesel pump as a series weakness when main power is lost.
+
+  gas_detection_upgrade:
+    name: Improved gas detection coverage
+    description: Additional point and open-path detectors in process modules after a dispersion-based mapping study.
+    capex_usd: 1.5e+6
+    opex_usd_per_year: 3.0e+4
+    life_years: 15
+    effectiveness: {type: triangular, low: 0.3, mode: 0.5, high: 0.6}
+    effects:
+      - {param: gd_coverage_small,  op: close_gap}
+      - {param: gd_coverage_medium, op: close_gap}
+      - {param: gd_coverage_large,  op: close_gap}
+    rationale: Closes a fraction of the geometric coverage gap; hardware reliability is not the limiting factor.
+
+  inspection_programme:
+    name: Increased inspection frequency (risk-based inspection)
+    description: Shorter inspection intervals for corrosion loops and the export pipeline.
+    capex_usd: 8.0e+5
+    opex_usd_per_year: 2.5e+5
+    life_years: 5
+    effectiveness: {type: triangular, low: 0.2, mode: 0.35, high: 0.5}
+    effects:
+      - {param: rel_corrosion_rate,      op: reduce}
+      - {param: pipeline_rate_per_km_yr, op: reduce, weight: 0.5}
+    rationale: Finds wall loss before it becomes a leak; pipeline benefit assumed half as large.
+
+  emergency_response:
+    name: Faster emergency response
+    description: Additional drills, dedicated standby vessel with fire-fighting capability, revised muster.
+    capex_usd: 6.0e+5
+    opex_usd_per_year: 1.0e+5
+    life_years: 10
+    effectiveness: {type: triangular, low: 0.3, mode: 0.5, high: 0.7}
+    effects:
+      - {param: p_er_delayed, op: reduce}
+    rationale: Reduces the chance a response is delayed, and hence escalation.
+
+  generator_redundancy:
+    name: Fourth gas-turbine generator
+    description: Moves power generation from 2oo3 to 2oo4.
+    capex_usd: 3.5e+6
+    opex_usd_per_year: 1.5e+5
+    life_years: 20
+    architecture: {generators_installed: 4}
+    effectiveness: {type: fixed, value: 1.0}
+    effects: []
+    rationale: Reduces the independent-failure term only; common-cause loss of power is unchanged.
+
+  compressor_pm:
+    name: Improved compressor preventive maintenance
+    description: Condition monitoring and borescope inspections; earlier intervention on degradation.
+    capex_usd: 1.2e+6
+    opex_usd_per_year: 2.0e+5
+    life_years: 5
+    effectiveness: {type: triangular, low: 0.10, mode: 0.25, high: 0.40}
+    effects:
+      - {param: comp_weibull_scale_years, op: increase}
+    rationale: Extends the characteristic life of the trains (Weibull scale).
+
+  deluge_coverage:
+    name: Additional deluge coverage and valve duplication
+    description: Duplicated deluge valve sets on PPA/PPB process modules and extended coverage.
+    capex_usd: 1.8e+6
+    opex_usd_per_year: 4.0e+4
+    life_years: 15
+    effectiveness: {type: triangular, low: 0.3, mode: 0.5, high: 0.7}
+    effects:
+      - {param: deluge_lambda_du,         op: reduce}
+      - {param: p_manual_activation_fail, op: reduce, weight: 0.5}
+    rationale: Lower deluge failure on demand; better manual activation points.
+
+  critical_spares:
+    name: Critical spares holding (reduced repair time)
+    description: Compressor rotating spares, pipeline repair clamp and generator parts held in country.
+    capex_usd: 2.5e+6
+    opex_usd_per_year: 1.0e+5
+    life_years: 10
+    effectiveness: {type: triangular, low: 0.2, mode: 0.35, high: 0.5}
+    effects:
+      - {param: comp_repair_days,     op: reduce}
+      - {param: pipeline_repair_days, op: reduce}
+      - {param: power_restart_days,   op: reduce, weight: 0.3}
+    rationale: Removes waiting-for-parts time from mechanical repairs.
+
+  ptw_competence:
+    name: Permit-to-work and isolation competence programme
+    description: Isolation verification, competence assurance and supervision of breaking-containment work.
+    capex_usd: 5.0e+5
+    opex_usd_per_year: 1.5e+5
+    life_years: 5
+    effectiveness: {type: triangular, low: 0.2, mode: 0.3, high: 0.5}
+    effects:
+      - {param: ptw_isolation_failure_prob, op: reduce}
+    rationale: Reduces maintenance-induced releases.

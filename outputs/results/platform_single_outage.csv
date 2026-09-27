@@ -1,0 +1,7 @@
+platform,name,own_production_bopd,complex_production_lost_bopd,fraction_of_complex,platforms_affected
+WHP,Wellhead Platform,0.0,26160.0,0.654,"PPA, PPB"
+PPA,Production Platform A,22000.0,31000.0,0.775,PPB
+PPB,Production Platform B,18000.0,18000.0,0.45,
+UCP,Utility / Compression Platform,0.0,40000.0,1.0,"WHP, PPA, PPB"
+LQ,Living Quarters Platform,0.0,36810.0,0.92025,"PPA, PPB"
+SWI,Support / Water Injection Platform,0.0,7147.5,0.1786875,"PPA, PPB"

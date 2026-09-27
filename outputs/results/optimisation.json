@@ -1,0 +1,51 @@
+{
+  "eal": {
+    "objective": "eal",
+    "budget": 5000000.0,
+    "selected": [
+      "inspection_programme",
+      "compressor_pm",
+      "critical_spares",
+      "ptw_competence"
+    ],
+    "capex": 5000000.0,
+    "predicted_value": 4833933.880160354,
+    "simulated_value": 4833933.8801603615,
+    "simulated_eal_reduction": 4833933.8801603615,
+    "simulated_es99_reduction": 63826152.95244485,
+    "annualised_cost": 1698714.8581597793,
+    "standalone_sum": 5472438.361177087
+  },
+  "es99": {
+    "objective": "es99",
+    "budget": 5000000.0,
+    "selected": [
+      "gas_detection_upgrade",
+      "critical_spares",
+      "ptw_competence"
+    ],
+    "capex": 4500000.0,
+    "predicted_value": 96426991.80605602,
+    "simulated_value": 95594962.29540691,
+    "simulated_eal_reduction": 4734503.934599247,
+    "simulated_es99_reduction": 95594962.29540691,
+    "annualised_cost": 953046.2664301365,
+    "standalone_sum": 90447033.40431511
+  },
+  "net_benefit": {
+    "objective": "net_benefit",
+    "budget": 5000000.0,
+    "selected": [
+      "gas_detection_upgrade",
+      "critical_spares",
+      "ptw_competence"
+    ],
+    "capex": 4500000.0,
+    "predicted_value": 3781457.66816911,
+    "simulated_value": 3781457.66816911,
+    "simulated_eal_reduction": 4734503.934599247,
+    "simulated_es99_reduction": 95594962.29540691,
+    "annualised_cost": 953046.2664301365,
+    "standalone_sum": 3942182.5311800907
+  }
+}

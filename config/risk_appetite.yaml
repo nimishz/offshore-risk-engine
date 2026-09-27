@@ -1,0 +1,37 @@
+# HYPOTHETICAL management thresholds for the fictional operator.
+# These are NOT industry standards, regulatory limits or recommendations.
+# They exist to demonstrate how simulated exposure is compared with a stated appetite.
+
+near_threshold_fraction: 0.8   # >= 80 % of a limit is "Near threshold"
+
+limits:
+  expected_annual_loss:
+    description: Expected annual operational loss (EAL)
+    metric: eal
+    limit: 25.0e+6
+    unit: USD/yr
+  p95_annual_loss:
+    description: 1-in-20-year annual loss (P95)
+    metric: p95
+    limit: 70.0e+6
+    unit: USD/yr
+  production_downtime_p95:
+    description: P95 of annual lost production, in equivalent days of full-complex shutdown
+    metric: downtime_p95_days
+    limit: 25.0
+    unit: days/yr
+  single_event_loss_1in100:
+    description: 1-in-100-year largest single-event loss (P99 of the annual maximum event loss)
+    metric: max_event_p99
+    limit: 250.0e+6
+    unit: USD
+  firewater_unavailability:
+    description: Firewater system probability of failure on demand (fire on a production platform)
+    metric: pfd_firewater
+    limit: 1.0e-2
+    unit: probability per demand
+  fire_protection_unavailability:
+    description: Overall fire-protection function PFD (firewater, deluge, detection) on a production platform
+    metric: pfd_fire_protection
+    limit: 5.0e-2
+    unit: probability per demand

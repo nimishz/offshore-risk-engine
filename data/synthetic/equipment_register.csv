@@ -1,0 +1,16 @@
+tag,platform,type,description,installed_year
+FWP-A,UCP,electric_firewater_pump,Electric-motor firewater pump A (100 %),2008
+FWP-B,UCP,electric_firewater_pump,Electric-motor firewater pump B (100 %),2008
+FWP-C,SWI,diesel_firewater_pump,Diesel-driven standby firewater pump (100 %),2008
+GTG-1,UCP,gas_turbine_generator,Gas turbine generator 1 (50 %),2008
+GTG-2,UCP,gas_turbine_generator,Gas turbine generator 2 (50 %),2008
+GTG-3,UCP,gas_turbine_generator,Gas turbine generator 3 (50 %),2008
+K-101,UCP,gas_compressor_train,Gas compression train 1 (50 %),2008
+K-102,UCP,gas_compressor_train,Gas compression train 2 (50 %),2008
+ESDV-A1,PPA,esd_valve,Inlet ESD valve 1 (1oo2),2008
+ESDV-A2,PPA,esd_valve,Inlet ESD valve 2 (1oo2),2008
+ESDV-B1,PPB,esd_valve,Inlet ESD valve 1 (1oo2),2008
+ESDV-B2,PPB,esd_valve,Inlet ESD valve 2 (1oo2),2008
+XV-DEL-A,PPA,deluge_valve,"Deluge valve set, process module",2008
+XV-DEL-B,PPB,deluge_valve,"Deluge valve set, process module",2008
+PL-EXP-01,PPA,export_pipeline,30 km export pipeline,2008
