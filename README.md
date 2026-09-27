@@ -90,7 +90,7 @@ offshore-risk-engine/
 │   └── config.py, config_validation.py, distributions.py
 ├── scripts/         generate data, run analysis, run validation, render docs, build notebooks
 ├── notebooks/       01–05, executed; thin wrappers around the library
-├── dashboard/       Streamlit app (local only)
+├── dashboard/       Streamlit app
 ├── tests/           pytest suite (? tests)
 ├── outputs/         results/ (CSV, JSON) and figures/ (PNG) from the full run
 └── docs/            methodology, assumptions, data dictionary, validation, limitations, research notes
@@ -311,8 +311,9 @@ not industry or regulatory criteria.
 `streamlit run dashboard/app.py` opens six views: Executive, Asset, Scenarios,
 Monte Carlo, Mitigation and Sensitivity. The sidebar sets the sample size,
 dependence model, Bayesian updating, seed and the controls in place, and every
-view updates from the library. The server listens on `localhost` only and
-usage statistics are disabled (`.streamlit/config.toml`). Screenshots use the
+view updates from the library. Started with `--server.address localhost` it is
+reachable only from your own machine; usage statistics are disabled
+(`.streamlit/config.toml`). The same app deploys unchanged to Streamlit Community Cloud. Screenshots use the
 default 20,000 simulated years, so their figures differ slightly from the
 results above.
 
@@ -375,7 +376,7 @@ python scripts/run_analysis.py              # outputs/results + outputs/figures 
 python scripts/run_validation.py            # docs/validation_results.md (~2 min)
 python scripts/render_docs.py               # README.md and docs/ numbers from outputs/
 python scripts/build_notebooks.py           # executes notebooks/01–05
-streamlit run dashboard/app.py
+streamlit run dashboard/app.py --server.address localhost   # local only
 ```
 
 `make all` runs the whole chain. From Python:

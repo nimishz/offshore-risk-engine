@@ -1,13 +1,13 @@
-# Local-only dashboard: do not listen on external interfaces, do not send usage statistics.
+# Do not send usage statistics. To keep the dashboard private on your own machine,
+# start it with `--server.address localhost` (see README / Makefile). The address is
+# not fixed here so the same app can also be deployed to Streamlit Community Cloud.
 [server]
-address = "localhost"
 headless = true
 enableCORS = true
 enableXsrfProtection = true
 
 [browser]
 gatherUsageStats = false
-serverAddress = "localhost"
 
 [client]
 toolbarMode = "minimal"

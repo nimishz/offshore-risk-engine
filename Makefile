@@ -27,6 +27,6 @@ notebooks:
 	python scripts/build_notebooks.py
 
 dashboard:
-	streamlit run dashboard/app.py
+	streamlit run dashboard/app.py --server.address localhost
 
 all: data lint test analysis validate docs notebooks
